@@ -33,9 +33,11 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 
+import io.lettuce.core.api.StatefulConnection;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.codec.RedisCodec;
 import io.lettuce.core.codec.StringCodec;
+import io.lettuce.core.internal.AbstractInvocationHandler;
 import io.lettuce.core.internal.ExceptionFactory;
 import io.lettuce.core.internal.Futures;
 import io.lettuce.core.internal.LettuceAssert;
@@ -838,6 +840,11 @@ public class RedisClient extends AbstractRedisClient {
         LettuceAssert.assertState(this.redisURI != EMPTY_URI,
                 "RedisURI is not available. Use RedisClient(Host), RedisClient(Host, Port) or RedisClient(RedisURI) to construct your client.");
         checkValidRedisURI(this.redisURI);
+    }
+
+    protected static AbstractInvocationHandler getFutureSyncInvocationHandler(StatefulConnection<?, ?> connection,
+            Object asyncApi, Class<?>... interfaces) {
+        return new FutureSyncInvocationHandler(connection, asyncApi, interfaces);
     }
 
 }

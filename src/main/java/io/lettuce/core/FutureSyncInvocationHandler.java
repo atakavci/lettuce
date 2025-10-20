@@ -40,7 +40,7 @@ import io.lettuce.core.protocol.RedisCommand;
  * @author Tz Zhuo
  * @since 3.0
  */
-class FutureSyncInvocationHandler extends AbstractInvocationHandler {
+public class FutureSyncInvocationHandler extends AbstractInvocationHandler {
 
     private final StatefulConnection<?, ?> connection;
 
@@ -49,6 +49,10 @@ class FutureSyncInvocationHandler extends AbstractInvocationHandler {
     private final Object asyncApi;
 
     private final MethodTranslator translator;
+
+    public FutureSyncInvocationHandler() {
+        throw new UnsupportedOperationException("Can not instantiate");
+    }
 
     FutureSyncInvocationHandler(StatefulConnection<?, ?> connection, Object asyncApi, Class<?>[] interfaces) {
         this.connection = connection;
@@ -115,6 +119,11 @@ class FutureSyncInvocationHandler extends AbstractInvocationHandler {
         }
 
         return false;
+    }
+
+    protected static FutureSyncInvocationHandler create(StatefulConnection<?, ?> connection, Object asyncApi,
+            Class<?>[] interfaces) {
+        return new FutureSyncInvocationHandler(connection, asyncApi, interfaces);
     }
 
 }
