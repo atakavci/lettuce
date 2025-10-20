@@ -46,7 +46,7 @@ import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.TestSupport;
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.failover.api.StatefulRedisFailoverConnection;
+import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.core.resource.ClientResources;
 import io.lettuce.core.sentinel.api.StatefulRedisSentinelConnection;
@@ -62,9 +62,9 @@ import io.lettuce.test.LettuceExtension;
  */
 @ExtendWith(LettuceExtension.class)
 @Tag(INTEGRATION_TEST)
-class RedisFailoverClientConnectIntegrationTests extends TestSupport {
+class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
 
-    private final RedisFailoverClient client;
+    private final MultiDbClient client;
 
     private final ClientResources clientResources = TestClientResources.get();
 
@@ -74,7 +74,7 @@ class RedisFailoverClientConnectIntegrationTests extends TestSupport {
     }
 
     @Inject
-    RedisFailoverClientConnectIntegrationTests(RedisFailoverClient client) {
+    RedisMultiDbClientConnectIntegrationTests(MultiDbClient client) {
         this.client = client;
     }
 
@@ -144,7 +144,7 @@ class RedisFailoverClientConnectIntegrationTests extends TestSupport {
     @Test
     @Disabled("Non-deterministic behavior. Can cause a deadlock")
     void shutdownSyncInRedisFutureTest() {
-        try (final RedisFailoverClient redisFailoverClient = RedisFailoverClient.create();
+        try (final MultiDbClient redisFailoverClient = MultiDbClient.create();
                 final StatefulRedisConnection<String, String> connection = redisFailoverClient
                         .connect(redis(host, port).build())) {
             CompletableFuture<String> f = connection.async().get("key1").whenComplete((result, e) -> {
@@ -159,7 +159,7 @@ class RedisFailoverClientConnectIntegrationTests extends TestSupport {
     @Test
     void shutdownAsyncInRedisFutureTest() {
 
-        try (final RedisFailoverClient redisFailoverClient = RedisFailoverClient.create();
+        try (final MultiDbClient redisFailoverClient = MultiDbClient.create();
                 final StatefulRedisConnection<String, String> connection = redisFailoverClient
                         .connect(redis(host, port).build())) {
             CompletableFuture<Void> f = connection.async().get("key1").thenCompose(result -> {
@@ -184,7 +184,7 @@ class RedisFailoverClientConnectIntegrationTests extends TestSupport {
 
     @Test
     void connectAndRunAndSwitchAndRun() throws InterruptedException, ExecutionException {
-        StatefulRedisFailoverConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
         RedisFuture futureSet = connection.async().set("key1", "value1");
         TestFutures.awaitOrTimeout(futureSet);
         RedisFuture<String> futureGet = connection.async().get("key1");

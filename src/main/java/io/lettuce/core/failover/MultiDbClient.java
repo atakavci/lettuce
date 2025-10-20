@@ -16,7 +16,7 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.codec.RedisCodec;
 import io.lettuce.core.codec.StringCodec;
 import io.lettuce.core.event.command.CommandListener;
-import io.lettuce.core.failover.api.StatefulRedisFailoverConnection;
+import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.core.internal.LettuceAssert;
 import io.lettuce.core.resource.ClientResources;
 
@@ -26,13 +26,13 @@ import io.lettuce.core.resource.ClientResources;
  *
  * Standalone-only POC. Not for Sentinel/Cluster.
  */
-public class RedisFailoverClient extends AbstractRedisClient {
+public class MultiDbClient extends AbstractRedisClient {
 
     private final List<RedisURI> endpoints;
 
     private final RedisClient delegate;
 
-    protected RedisFailoverClient(ClientResources clientResources, List<RedisURI> endpoints) {
+    protected MultiDbClient(ClientResources clientResources, List<RedisURI> endpoints) {
         super(clientResources);
 
         delegate = RedisClient.create(this.getResources());
@@ -40,25 +40,25 @@ public class RedisFailoverClient extends AbstractRedisClient {
         this.endpoints.forEach(uri -> LettuceAssert.notNull(uri, "RedisURI must not be null"));
     }
 
-    public static RedisFailoverClient create() {
-        return new RedisFailoverClient(null, null);
+    public static MultiDbClient create() {
+        return new MultiDbClient(null, null);
     }
 
-    public static RedisFailoverClient create(List<RedisURI> endpoints) {
+    public static MultiDbClient create(List<RedisURI> endpoints) {
         if (endpoints == null || endpoints.isEmpty()) {
             throw new IllegalArgumentException("endpoints must not be empty");
         }
-        return new RedisFailoverClient(null, endpoints);
+        return new MultiDbClient(null, endpoints);
     }
 
-    public static RedisFailoverClient create(ClientResources resources, List<RedisURI> endpoints) {
+    public static MultiDbClient create(ClientResources resources, List<RedisURI> endpoints) {
         if (resources == null) {
             throw new IllegalArgumentException("resources must not be null");
         }
         if (endpoints == null || endpoints.isEmpty()) {
             throw new IllegalArgumentException("endpoints must not be empty");
         }
-        return new RedisFailoverClient(resources, endpoints);
+        return new MultiDbClient(resources, endpoints);
     }
 
     /**
@@ -66,7 +66,7 @@ public class RedisFailoverClient extends AbstractRedisClient {
      *
      * @return A new stateful Redis connection
      */
-    public StatefulRedisFailoverConnection<String, String> connect() {
+    public StatefulRedisMultiDbConnection<String, String> connect() {
         return connect(newStringStringCodec());
     }
 
@@ -76,13 +76,13 @@ public class RedisFailoverClient extends AbstractRedisClient {
         return connect(newStringStringCodec());
     }
 
-    public <K, V> StatefulRedisFailoverConnection<K, V> connect(RedisCodec<K, V> codec, RedisURI redisURI) {
+    public <K, V> StatefulRedisMultiDbConnection<K, V> connect(RedisCodec<K, V> codec, RedisURI redisURI) {
         endpoints.clear();
         endpoints.add(redisURI);
         return connect(codec);
     }
 
-    public <K, V> StatefulRedisFailoverConnection<K, V> connect(RedisCodec<K, V> codec) {
+    public <K, V> StatefulRedisMultiDbConnection<K, V> connect(RedisCodec<K, V> codec) {
 
         if (codec == null) {
             throw new IllegalArgumentException("codec must not be null");
@@ -98,7 +98,7 @@ public class RedisFailoverClient extends AbstractRedisClient {
             weight = +2;
         }
 
-        return new StatefulRedisFailoverConnectionImpl<>(connections, getResources(), codec, getOptions().getJsonParser());
+        return new StatefulRedisMultiDbConnectionImpl<>(connections, getResources(), codec, getOptions().getJsonParser());
     }
 
     protected RedisCodec<String, String> newStringStringCodec() {

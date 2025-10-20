@@ -50,11 +50,7 @@ public class FutureSyncInvocationHandler extends AbstractInvocationHandler {
 
     private final MethodTranslator translator;
 
-    public FutureSyncInvocationHandler() {
-        throw new UnsupportedOperationException("Can not instantiate");
-    }
-
-    FutureSyncInvocationHandler(StatefulConnection<?, ?> connection, Object asyncApi, Class<?>[] interfaces) {
+    public FutureSyncInvocationHandler(StatefulConnection<?, ?> connection, Object asyncApi, Class<?>[] interfaces) {
         this.connection = connection;
         this.timeoutProvider = new TimeoutProvider(() -> connection.getOptions().getTimeoutOptions(),
                 () -> connection.getTimeout().toNanos());
@@ -119,11 +115,6 @@ public class FutureSyncInvocationHandler extends AbstractInvocationHandler {
         }
 
         return false;
-    }
-
-    protected static FutureSyncInvocationHandler create(StatefulConnection<?, ?> connection, Object asyncApi,
-            Class<?>[] interfaces) {
-        return new FutureSyncInvocationHandler(connection, asyncApi, interfaces);
     }
 
 }

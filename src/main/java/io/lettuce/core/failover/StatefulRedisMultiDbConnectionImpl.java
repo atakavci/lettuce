@@ -1,6 +1,5 @@
 package io.lettuce.core.failover;
 
-import java.lang.Thread.State;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.Collection;
@@ -13,20 +12,20 @@ import java.util.function.Supplier;
 
 import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.ClientOptions;
+import io.lettuce.core.FutureSyncInvocationHandler;
 import io.lettuce.core.RedisAsyncCommandsImpl;
 import io.lettuce.core.RedisConnectionStateListener;
 import io.lettuce.core.RedisDatabase;
 import io.lettuce.core.RedisReactiveCommandsImpl;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulConnection;
-import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.api.push.PushListener;
 import io.lettuce.core.api.reactive.RedisReactiveCommands;
 import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
 import io.lettuce.core.codec.RedisCodec;
-import io.lettuce.core.failover.api.StatefulRedisFailoverConnection;
+import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.core.internal.AbstractInvocationHandler;
 import io.lettuce.core.json.JsonParser;
 import io.lettuce.core.protocol.RedisCommand;
@@ -37,11 +36,11 @@ import io.lettuce.core.resource.ClientResources;
  * interfaces (sync/async/reactive) are dynamic proxies that always target the current active connection at invocation time so
  * they remain valid across switches.
  */
-public class StatefulRedisFailoverConnectionImpl<K, V> implements StatefulRedisFailoverConnection<K, V> {
+public class StatefulRedisMultiDbConnectionImpl<K, V> implements StatefulRedisMultiDbConnection<K, V> {
 
-    private final Map<RedisURI, RedisDatabase<K, V>> databases;
+    protected final Map<RedisURI, RedisDatabase<K, V>> databases;
 
-    private RedisDatabase<K, V> current;
+    protected RedisDatabase<K, V> current;
 
     protected final RedisCommands<K, V> sync;
 
@@ -59,7 +58,7 @@ public class StatefulRedisFailoverConnectionImpl<K, V> implements StatefulRedisF
 
     // private final ClientResources clientResources;
 
-    public StatefulRedisFailoverConnectionImpl(Map<RedisURI, RedisDatabase<K, V>> connections, ClientResources resources,
+    public StatefulRedisMultiDbConnectionImpl(Map<RedisURI, RedisDatabase<K, V>> connections, ClientResources resources,
             RedisCodec<K, V> codec, Supplier<JsonParser> parser) {
         if (connections == null || connections.isEmpty()) {
             throw new IllegalArgumentException("connections must not be empty");
@@ -91,10 +90,7 @@ public class StatefulRedisFailoverConnectionImpl<K, V> implements StatefulRedisF
 
     @SuppressWarnings("unchecked")
     protected <T> T syncHandler(Object asyncApi, Class<?>... interfaces) {
-        AbstractInvocationHandler h = FailoverFutureSyncInvocationFactory.createFutureSyncInvocationHandler(this, asyncApi,
-                interfaces);
-        // FutureSyncInvocationHandler h = new FutureSyncInvocationHandler((StatefulConnection<?, ?>) this, asyncApi,
-        // interfaces);
+        AbstractInvocationHandler h = new FutureSyncInvocationHandler(this, asyncApi, interfaces);
         return (T) Proxy.newProxyInstance(AbstractRedisClient.class.getClassLoader(), interfaces, h);
     }
 

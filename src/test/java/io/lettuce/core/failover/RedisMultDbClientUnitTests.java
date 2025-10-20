@@ -36,7 +36,7 @@ import io.netty.util.concurrent.ImmediateEventExecutor;
 @SuppressWarnings("unchecked")
 @ExtendWith(MockitoExtension.class)
 @Tag(UNIT_TEST)
-class RedisFailoverClientUnitTests {
+class RedisMultDbClientUnitTests {
 
     @Mock
     ClientResources clientResources;
@@ -52,7 +52,7 @@ class RedisFailoverClientUnitTests {
         CompletableFuture<Void> completableFuture = new CompletableFuture<>();
         when(asyncCloseable.closeAsync()).thenReturn(completableFuture);
 
-        RedisFailoverClient redisClient = RedisFailoverClient.create(clientResources,
+        MultiDbClient redisClient = MultiDbClient.create(clientResources,
                 java.util.Arrays.asList(RedisURI.create("redis://foo"), RedisURI.create("redis://bar")));
 
         Field field = AbstractRedisClient.class.getDeclaredField("sharedResources");
@@ -77,7 +77,7 @@ class RedisFailoverClientUnitTests {
         CompletableFuture<Void> completableFuture = new CompletableFuture<>();
         when(asyncCloseable.closeAsync()).thenReturn(completableFuture);
 
-        RedisFailoverClient redisClient = RedisFailoverClient.create(clientResources,
+        MultiDbClient redisClient = MultiDbClient.create(clientResources,
                 java.util.Arrays.asList(RedisURI.create("redis://foo"), RedisURI.create("redis://bar")));
 
         Field field = AbstractRedisClient.class.getDeclaredField("sharedResources");

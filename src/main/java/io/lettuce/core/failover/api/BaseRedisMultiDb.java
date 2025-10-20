@@ -1,9 +1,8 @@
 package io.lettuce.core.failover.api;
 
 import io.lettuce.core.RedisURI;
-import io.lettuce.core.api.StatefulRedisConnection;
 
-public interface StatefulRedisFailoverConnection<K, V> extends StatefulRedisConnection<K, V> {
+public interface BaseRedisMultiDb {
 
     void switchToDatabase(RedisURI redisURI);
 

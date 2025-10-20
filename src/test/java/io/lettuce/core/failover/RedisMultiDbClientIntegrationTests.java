@@ -37,12 +37,12 @@ import static io.lettuce.TestTags.INTEGRATION_TEST;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Integration tests for {@link RedisFailoverClient}.
+ * Integration tests for {@link MultiDbClient}.
  *
  * @author Mark Paluch
  */
 @Tag(INTEGRATION_TEST)
-class RedisFailoverClientIntegrationTests extends TestSupport {
+class RedisMultiDbClientIntegrationTests extends TestSupport {
 
     private final ClientResources clientResources = TestClientResources.get();
 
@@ -56,7 +56,7 @@ class RedisFailoverClientIntegrationTests extends TestSupport {
 
         TestConnectionListener listener = new TestConnectionListener();
 
-        RedisFailoverClient client = RedisFailoverClient.create(clientResources, getEndpoints());
+        MultiDbClient client = MultiDbClient.create(clientResources, getEndpoints());
 
         client.addListener(listener);
 
@@ -90,7 +90,7 @@ class RedisFailoverClientIntegrationTests extends TestSupport {
         final TestConnectionListener removedListener = new TestConnectionListener();
         final TestConnectionListener retainedListener = new TestConnectionListener();
 
-        RedisFailoverClient client = RedisFailoverClient.create(clientResources, getEndpoints());
+        MultiDbClient client = MultiDbClient.create(clientResources, getEndpoints());
         client.addListener(removedListener);
         client.addListener(retainedListener);
         client.removeListener(removedListener);
@@ -117,8 +117,8 @@ class RedisFailoverClientIntegrationTests extends TestSupport {
         DefaultClientResources clientResources = DefaultClientResources.create();
         Map<Class<? extends EventExecutorGroup>, EventExecutorGroup> eventLoopGroups = getExecutors(clientResources);
 
-        RedisFailoverClient redisFailoverClient1 = newClient(clientResources);
-        RedisFailoverClient redisFailoverClient2 = newClient(clientResources);
+        MultiDbClient redisFailoverClient1 = newClient(clientResources);
+        MultiDbClient redisFailoverClient2 = newClient(clientResources);
         connectAndClose(redisFailoverClient1);
         connectAndClose(redisFailoverClient2);
 
@@ -141,7 +141,7 @@ class RedisFailoverClientIntegrationTests extends TestSupport {
 
         TestCommandListener commandListener = new TestCommandListener();
 
-        RedisFailoverClient client = RedisFailoverClient.create(clientResources, getEndpoints());
+        MultiDbClient client = MultiDbClient.create(clientResources, getEndpoints());
         client.addListener(commandListener);
         ClientOptions options = ClientOptions.builder().timeoutOptions(TimeoutOptions.enabled()).build();
         // HACK : check how to access setOptions
@@ -169,8 +169,8 @@ class RedisFailoverClientIntegrationTests extends TestSupport {
         DefaultClientResources clientResources = DefaultClientResources.create();
         Map<Class<? extends EventExecutorGroup>, EventExecutorGroup> eventLoopGroups = getExecutors(clientResources);
 
-        RedisFailoverClient redisFailoverClient1 = newClient(clientResources);
-        RedisFailoverClient redisFailoverClient2 = newClient(clientResources);
+        MultiDbClient redisFailoverClient1 = newClient(clientResources);
+        MultiDbClient redisFailoverClient2 = newClient(clientResources);
         connectAndClose(redisFailoverClient1);
         connectAndClose(redisFailoverClient2);
 
@@ -196,7 +196,7 @@ class RedisFailoverClientIntegrationTests extends TestSupport {
     void managedClientResources() throws Exception {
 
         // given
-        RedisFailoverClient redisFailoverClient1 = RedisFailoverClient.create(getEndpoints());
+        MultiDbClient redisFailoverClient1 = MultiDbClient.create(getEndpoints());
         ClientResources clientResources = redisFailoverClient1.getResources();
         Map<Class<? extends EventExecutorGroup>, EventExecutorGroup> eventLoopGroups = getExecutors(clientResources);
         connectAndClose(redisFailoverClient1);
@@ -212,12 +212,12 @@ class RedisFailoverClientIntegrationTests extends TestSupport {
         assertThat(clientResources.eventExecutorGroup().isShuttingDown()).isTrue();
     }
 
-    private void connectAndClose(RedisFailoverClient client) {
+    private void connectAndClose(MultiDbClient client) {
         client.connect().close();
     }
 
-    private RedisFailoverClient newClient(DefaultClientResources clientResources) {
-        return RedisFailoverClient.create(clientResources, getEndpoints());
+    private MultiDbClient newClient(DefaultClientResources clientResources) {
+        return MultiDbClient.create(clientResources, getEndpoints());
     }
 
     private Map<Class<? extends EventExecutorGroup>, EventExecutorGroup> getExecutors(ClientResources clientResources)

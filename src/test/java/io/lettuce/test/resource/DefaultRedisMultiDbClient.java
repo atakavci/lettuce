@@ -4,21 +4,21 @@ import java.util.List;
 
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
-import io.lettuce.core.failover.RedisFailoverClient;
+import io.lettuce.core.failover.MultiDbClient;
 import io.lettuce.test.settings.TestSettings;
 
 /**
  * @author Mark Paluch
  * @author Hari Mani
  */
-public class DefaultRedisFailoverClient {
+public class DefaultRedisMultiDbClient {
 
-    private static final DefaultRedisFailoverClient instance = new DefaultRedisFailoverClient();
+    private static final DefaultRedisMultiDbClient instance = new DefaultRedisMultiDbClient();
 
-    private final RedisFailoverClient redisClient;
+    private final MultiDbClient redisClient;
 
-    private DefaultRedisFailoverClient() {
-        redisClient = RedisFailoverClient.create(getEndpoints());
+    private DefaultRedisMultiDbClient() {
+        redisClient = MultiDbClient.create(getEndpoints());
         Runtime.getRuntime().addShutdownHook(new Thread(() -> FastShutdown.shutdown(redisClient)));
     }
 
@@ -27,7 +27,7 @@ public class DefaultRedisFailoverClient {
      *
      * @return the default redis client for the tests.
      */
-    public static RedisFailoverClient get() {
+    public static MultiDbClient get() {
         return instance.redisClient;
     }
 

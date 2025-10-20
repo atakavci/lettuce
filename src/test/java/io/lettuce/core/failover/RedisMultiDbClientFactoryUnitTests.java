@@ -18,7 +18,7 @@ import io.lettuce.test.settings.TestSettings;
  * @author Mark Paluch
  */
 @Tag(UNIT_TEST)
-class RedisFailoverClientFactoryUnitTests {
+class RedisMultiDbClientFactoryUnitTests {
 
     private List<RedisURI> getEndpoints() {
         return java.util.Arrays.asList(RedisURI.create(TestSettings.host(), TestSettings.port()),
@@ -29,12 +29,12 @@ class RedisFailoverClientFactoryUnitTests {
 
     @Test
     void plain() {
-        FastShutdown.shutdown(RedisFailoverClient.create(getEndpoints()));
+        FastShutdown.shutdown(MultiDbClient.create(getEndpoints()));
     }
 
     @Test
     void withStringUri() {
-        FastShutdown.shutdown(RedisFailoverClient.create(getEndpoints()));
+        FastShutdown.shutdown(MultiDbClient.create(getEndpoints()));
     }
 
     // @Test
@@ -44,12 +44,12 @@ class RedisFailoverClientFactoryUnitTests {
 
     @Test
     void withUri() {
-        FastShutdown.shutdown(RedisFailoverClient.create(getEndpoints()));
+        FastShutdown.shutdown(MultiDbClient.create(getEndpoints()));
     }
 
     @Test
     void withUriNull() {
-        assertThatThrownBy(() -> RedisFailoverClient.create(Collections.singletonList((RedisURI) null)))
+        assertThatThrownBy(() -> MultiDbClient.create(Collections.singletonList((RedisURI) null)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -82,19 +82,19 @@ class RedisFailoverClientFactoryUnitTests {
 
     @Test
     void clientResourcesWithUri() {
-        FastShutdown.shutdown(RedisFailoverClient.create(TestClientResources.get(), Collections.singletonList(REDIS_URI)));
+        FastShutdown.shutdown(MultiDbClient.create(TestClientResources.get(), Collections.singletonList(REDIS_URI)));
     }
 
     @Test
     void clientResourcesWithUriNull() {
         assertThatThrownBy(
-                () -> RedisFailoverClient.create(TestClientResources.get(), Collections.singletonList((RedisURI) null)))
+                () -> MultiDbClient.create(TestClientResources.get(), Collections.singletonList((RedisURI) null)))
                         .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void clientResourcesNullWithUri() {
-        assertThatThrownBy(() -> RedisFailoverClient.create(null, Collections.singletonList(REDIS_URI)))
+        assertThatThrownBy(() -> MultiDbClient.create(null, Collections.singletonList(REDIS_URI)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

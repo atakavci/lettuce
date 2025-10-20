@@ -25,12 +25,12 @@ import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.dynamic.support.ResolvableType;
-import io.lettuce.core.failover.RedisFailoverClient;
+import io.lettuce.core.failover.MultiDbClient;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.core.resource.ClientResources;
 import io.lettuce.test.resource.DefaultRedisClient;
 import io.lettuce.test.resource.DefaultRedisClusterClient;
-import io.lettuce.test.resource.DefaultRedisFailoverClient;
+import io.lettuce.test.resource.DefaultRedisMultiDbClient;
 import io.lettuce.test.resource.TestClientResources;
 import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
@@ -92,7 +92,7 @@ public class LettuceExtension implements ParameterResolver, AfterAllCallback, Af
 
     private static final Set<Class<?>> SUPPORTED_INJECTABLE_TYPES = new HashSet<>(Arrays.asList(StatefulRedisConnection.class,
             StatefulRedisPubSubConnection.class, RedisCommands.class, RedisClient.class, ClientResources.class,
-            StatefulRedisClusterConnection.class, RedisClusterClient.class, RedisFailoverClient.class));
+            StatefulRedisClusterConnection.class, RedisClusterClient.class, MultiDbClient.class));
 
     private static final Set<Class<?>> CLOSE_AFTER_EACH = new HashSet<>(Arrays.asList(StatefulRedisConnection.class,
             StatefulRedisPubSubConnection.class, StatefulRedisClusterConnection.class));
@@ -100,7 +100,7 @@ public class LettuceExtension implements ParameterResolver, AfterAllCallback, Af
     private static final List<Supplier<?>> SUPPLIERS = Arrays.asList(ClientResourcesSupplier.INSTANCE,
             RedisClusterClientSupplier.INSTANCE, RedisClientSupplier.INSTANCE, StatefulRedisConnectionSupplier.INSTANCE,
             StatefulRedisPubSubConnectionSupplier.INSTANCE, StatefulRedisClusterConnectionSupplier.INSTANCE,
-            RedisFailoverClientSupplier.INSTANCE);
+            RedisMultiDbClientSupplier.INSTANCE);
 
     private static final List<Function<?, ?>> RESOURCE_FUNCTIONS = Collections.singletonList(RedisCommandsFunction.INSTANCE);
 
@@ -297,13 +297,13 @@ public class LettuceExtension implements ParameterResolver, AfterAllCallback, Af
 
     }
 
-    enum RedisFailoverClientSupplier implements Supplier<RedisFailoverClient> {
+    enum RedisMultiDbClientSupplier implements Supplier<MultiDbClient> {
 
         INSTANCE;
 
         @Override
-        public RedisFailoverClient get() {
-            return DefaultRedisFailoverClient.get();
+        public MultiDbClient get() {
+            return DefaultRedisMultiDbClient.get();
         }
 
     }
