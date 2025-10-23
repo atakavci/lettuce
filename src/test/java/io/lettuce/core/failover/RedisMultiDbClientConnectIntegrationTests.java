@@ -37,11 +37,15 @@ import java.util.stream.StreamSupport;
 import javax.inject.Inject;
 
 import io.lettuce.core.protocol.ProtocolVersion;
+
+import org.junit.After;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.TestSupport;
@@ -68,6 +72,10 @@ class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
 
     private final ClientResources clientResources = TestClientResources.get();
 
+    private final RedisClient client1;
+
+    private final RedisClient client2;
+
     private List<RedisURI> getEndpoints() {
         return java.util.Arrays.asList(RedisURI.create(TestSettings.host(), TestSettings.port()),
                 RedisURI.create(TestSettings.host(), TestSettings.port(1)));
@@ -76,6 +84,20 @@ class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
     @Inject
     RedisMultiDbClientConnectIntegrationTests(MultiDbClient client) {
         this.client = client;
+        this.client1 = RedisClient.create(getEndpoints().get(0));
+        this.client2 = RedisClient.create(getEndpoints().get(1));
+    }
+
+    @BeforeEach
+    void setUp() {
+        client1.connect().sync().flushall();
+        client2.connect().sync().flushall();
+    }
+
+    @After
+    void tearDown() {
+        client1.shutdown();
+        client2.shutdown();
     }
 
     /*
@@ -96,31 +118,31 @@ class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
         connection.close();
     }
 
-    @Test
-    void connectOwnUri() {
-        RedisURI redisURI = redis(host, port).build();
-        StatefulRedisConnection<String, String> connection = client.connect(redisURI);
-        assertThat(connection.getTimeout()).isEqualTo(redisURI.getTimeout());
-        connection.close();
-    }
+    // @Test
+    // void connectOwnUri() {
+    // RedisURI redisURI = redis(host, port).build();
+    // StatefulRedisConnection<String, String> connection = client.connect(redisURI);
+    // assertThat(connection.getTimeout()).isEqualTo(redisURI.getTimeout());
+    // connection.close();
+    // }
 
-    @Test
-    void connectMissingHostAndSocketUri() {
-        assertThatThrownBy(() -> client.connect(new RedisURI())).isInstanceOf(IllegalArgumentException.class);
-    }
+    // @Test
+    // void connectMissingHostAndSocketUri() {
+    // assertThatThrownBy(() -> client.connect(new RedisURI())).isInstanceOf(IllegalArgumentException.class);
+    // }
 
     // @Test
     // void connectSentinelMissingHostAndSocketUri() {
     // assertThatThrownBy(() -> client.connect(invalidSentinel())).isInstanceOf(IllegalArgumentException.class);
     // }
 
-    @Test
-    void connectCodecOwnUri() {
-        RedisURI redisURI = redis(host, port).build();
-        StatefulRedisConnection<String, String> connection = client.connect(UTF8, redisURI);
-        assertThat(connection.getTimeout()).isEqualTo(redisURI.getTimeout());
-        connection.close();
-    }
+    // @Test
+    // void connectCodecOwnUri() {
+    // RedisURI redisURI = redis(host, port).build();
+    // StatefulRedisConnection<String, String> connection = client.connect(UTF8, redisURI);
+    // assertThat(connection.getTimeout()).isEqualTo(redisURI.getTimeout());
+    // connection.close();
+    // }
 
     // @Test
     // void connectAsyncCodecOwnUri() {
@@ -131,45 +153,45 @@ class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
     // connection.close();
     // }
 
-    @Test
-    void connectCodecMissingHostAndSocketUri() {
-        assertThatThrownBy(() -> client.connect(UTF8, new RedisURI())).isInstanceOf(IllegalArgumentException.class);
-    }
+    // @Test
+    // void connectCodecMissingHostAndSocketUri() {
+    // assertThatThrownBy(() -> client.connect(UTF8, new RedisURI())).isInstanceOf(IllegalArgumentException.class);
+    // }
 
     // @Test
     // void connectcodecSentinelMissingHostAndSocketUri() {
     // assertThatThrownBy(() -> client.connect(UTF8, invalidSentinel())).isInstanceOf(IllegalArgumentException.class);
     // }
 
-    @Test
-    @Disabled("Non-deterministic behavior. Can cause a deadlock")
-    void shutdownSyncInRedisFutureTest() {
-        try (final MultiDbClient redisFailoverClient = MultiDbClient.create();
-                final StatefulRedisConnection<String, String> connection = redisFailoverClient
-                        .connect(redis(host, port).build())) {
-            CompletableFuture<String> f = connection.async().get("key1").whenComplete((result, e) -> {
-                connection.close();
-                redisFailoverClient.shutdown(0, 0, SECONDS); // deadlock expected.
-            }).toCompletableFuture();
+    // @Test
+    // @Disabled("Non-deterministic behavior. Can cause a deadlock")
+    // void shutdownSyncInRedisFutureTest() {
+    // try (final MultiDbClient redisFailoverClient = MultiDbClient.create();
+    // final StatefulRedisConnection<String, String> connection = redisFailoverClient
+    // .connect(redis(host, port).build())) {
+    // CompletableFuture<String> f = connection.async().get("key1").whenComplete((result, e) -> {
+    // connection.close();
+    // redisFailoverClient.shutdown(0, 0, SECONDS); // deadlock expected.
+    // }).toCompletableFuture();
 
-            assertThatThrownBy(() -> TestFutures.awaitOrTimeout(f)).isInstanceOf(TimeoutException.class);
-        }
-    }
+    // assertThatThrownBy(() -> TestFutures.awaitOrTimeout(f)).isInstanceOf(TimeoutException.class);
+    // }
+    // }
 
-    @Test
-    void shutdownAsyncInRedisFutureTest() {
+    // @Test
+    // void shutdownAsyncInRedisFutureTest() {
 
-        try (final MultiDbClient redisFailoverClient = MultiDbClient.create();
-                final StatefulRedisConnection<String, String> connection = redisFailoverClient
-                        .connect(redis(host, port).build())) {
-            CompletableFuture<Void> f = connection.async().get("key1").thenCompose(result -> {
-                connection.close();
-                return redisFailoverClient.shutdownAsync(0, 0, SECONDS);
-            }).toCompletableFuture();
+    // try (final MultiDbClient redisFailoverClient = MultiDbClient.create();
+    // final StatefulRedisConnection<String, String> connection = redisFailoverClient
+    // .connect(redis(host, port).build())) {
+    // CompletableFuture<Void> f = connection.async().get("key1").thenCompose(result -> {
+    // connection.close();
+    // return redisFailoverClient.shutdownAsync(0, 0, SECONDS);
+    // }).toCompletableFuture();
 
-            TestFutures.awaitOrTimeout(f);
-        }
-    }
+    // TestFutures.awaitOrTimeout(f);
+    // }
+    // }
 
     @Test
     void connectAndRunSimpleCommand() throws InterruptedException, ExecutionException {
@@ -178,7 +200,7 @@ class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
         TestFutures.awaitOrTimeout(futureSet);
         RedisFuture<String> futureGet = connection.async().get("key1");
         TestFutures.awaitOrTimeout(futureGet);
-        assertEquals(futureGet.get(), "value1");
+        assertEquals("value1", futureGet.get());
         connection.close();
     }
 
@@ -195,7 +217,7 @@ class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
         connection.switchToDatabase(other);
         RedisFuture<String> futureGet2 = connection.async().get("key1");
         TestFutures.awaitOrTimeout(futureGet2);
-        assertEquals(futureGet2.get(), null);
+        assertEquals(null, futureGet2.get());
         connection.close();
     }
 

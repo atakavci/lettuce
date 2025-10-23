@@ -55,7 +55,7 @@ class RedisMultiDbClientFactoryUnitTests {
 
     // @Test
     // void clientResources() {
-    //     FastShutdown.shutdown(RedisFailoverClient.create(TestClientResources.get()));
+    // FastShutdown.shutdown(RedisFailoverClient.create(TestClientResources.get()));
     // }
 
     // @Test
@@ -87,9 +87,8 @@ class RedisMultiDbClientFactoryUnitTests {
 
     @Test
     void clientResourcesWithUriNull() {
-        assertThatThrownBy(
-                () -> MultiDbClient.create(TestClientResources.get(), Collections.singletonList((RedisURI) null)))
-                        .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> MultiDbClient.create(TestClientResources.get(), Collections.singletonList((RedisURI) null)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

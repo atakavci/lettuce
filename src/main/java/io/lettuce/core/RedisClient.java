@@ -277,7 +277,7 @@ public class RedisClient extends AbstractRedisClient {
 
         logger.debug("Trying to get a Redis connection for: {}", redisURI);
 
-        DefaultEndpoint endpoint = new DefaultEndpoint(getOptions(), getResources());
+        DefaultEndpoint endpoint = createEndpoint();
         RedisChannelWriter writer = endpoint;
 
         if (CommandExpiryWriter.isSupported(getOptions())) {
@@ -410,7 +410,7 @@ public class RedisClient extends AbstractRedisClient {
         assertNotNull(codec);
         checkValidRedisURI(redisURI);
 
-        PubSubEndpoint<K, V> endpoint = new PubSubEndpoint<>(getOptions(), getResources());
+        PubSubEndpoint<K, V> endpoint = createPubSubEndpoint();
         RedisChannelWriter writer = endpoint;
 
         if (CommandExpiryWriter.isSupported(getOptions())) {
@@ -577,7 +577,7 @@ public class RedisClient extends AbstractRedisClient {
         connectionBuilder.clientOptions(ClientOptions.copyOf(getOptions()));
         connectionBuilder.clientResources(getResources());
 
-        DefaultEndpoint endpoint = new DefaultEndpoint(getOptions(), getResources());
+        DefaultEndpoint endpoint = createEndpoint();
         RedisChannelWriter writer = endpoint;
 
         if (CommandExpiryWriter.isSupported(getOptions())) {
@@ -845,6 +845,14 @@ public class RedisClient extends AbstractRedisClient {
     protected static AbstractInvocationHandler getFutureSyncInvocationHandler(StatefulConnection<?, ?> connection,
             Object asyncApi, Class<?>... interfaces) {
         return new FutureSyncInvocationHandler(connection, asyncApi, interfaces);
+    }
+
+    protected DefaultEndpoint createEndpoint() {
+        return new DefaultEndpoint(getOptions(), getResources());
+    }
+
+    protected <K, V> PubSubEndpoint<K, V> createPubSubEndpoint() {
+        return new PubSubEndpoint<>(getOptions(), getResources());
     }
 
 }

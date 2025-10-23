@@ -233,6 +233,7 @@ public class StatefulRedisMultiDbConnectionImpl<K, V> implements StatefulRedisMu
             toDb.getConnection().addListener(listener);
             fromDb.getConnection().removeListener(listener);
         });
+        fromDb.getEndpoint().handOverCommandQueue(toDb.getEndpoint());
     }
 
 }
