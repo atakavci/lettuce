@@ -297,4 +297,111 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
         publisher.close();
     }
 
+    // ============ Tests for Isolation After Database Switch ============
+
+    @Test
+    void shouldNotReceiveMessagesFromOldEndpointAfterSwitch() throws Exception {
+        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = client.connectPubSub();
+        BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
+
+        pubsub.addListener(new RedisPubSubAdapter<String, String>() {
+
+            @Override
+            public void message(String channel, String message) {
+                messages.add(message);
+            }
+
+        });
+
+        // Get the endpoints
+        RedisURI firstDb = pubsub.getCurrentEndpoint();
+        RedisURI secondDb = StreamSupport.stream(pubsub.getEndpoints().spliterator(), false).filter(uri -> !uri.equals(firstDb))
+                .findFirst().get();
+
+        // Subscribe on first database
+        pubsub.sync().subscribe("isolationtest");
+
+        // Switch to second database
+        pubsub.switchToDatabase(secondDb);
+
+        // Publish on the OLD endpoint (firstDb) - should NOT be received
+        StatefulRedisMultiDbPubSubConnection<String, String> oldPublisher = client.connectPubSub();
+        oldPublisher.sync().publish("isolationtest", "Message from old endpoint");
+
+        // Publish on the NEW endpoint (secondDb) - should be received
+        StatefulRedisMultiDbPubSubConnection<String, String> newPublisher = client.connectPubSub();
+        newPublisher.switchToDatabase(secondDb);
+        newPublisher.sync().publish("isolationtest", "Message from new endpoint");
+
+        // We should only receive the message from the new endpoint
+        String message = messages.poll(1, TimeUnit.SECONDS);
+        assertEquals("Message from new endpoint", message);
+
+        // Verify no additional messages are received (old endpoint message should not arrive)
+        String unexpectedMessage = messages.poll(500, TimeUnit.MILLISECONDS);
+        assertThat(unexpectedMessage).isNull();
+
+        pubsub.close();
+        oldPublisher.close();
+        newPublisher.close();
+    }
+
+    @Test
+    void shouldUnsubscribeChannelsFromOldEndpointAfterSwitch() throws Exception {
+        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = client.connectPubSub();
+        BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
+
+        pubsub.addListener(new RedisPubSubAdapter<String, String>() {
+
+            @Override
+            public void message(String channel, String message) {
+                messages.add(message);
+            }
+
+        });
+
+        // Get the endpoints
+        RedisURI firstDb = pubsub.getCurrentEndpoint();
+        RedisURI secondDb = StreamSupport.stream(pubsub.getEndpoints().spliterator(), false).filter(uri -> !uri.equals(firstDb))
+                .findFirst().get();
+
+        // Subscribe on first database
+        pubsub.sync().subscribe("unsubtest");
+
+        // Wait for subscription to be established
+        Thread.sleep(200);
+
+        // Switch to second database - this should trigger unsubscribe on old endpoint
+        pubsub.switchToDatabase(secondDb);
+
+        // Wait a bit for unsubscribe to complete
+        Thread.sleep(500);
+
+        // Verify that the old endpoint no longer receives messages
+        // by publishing on the old endpoint and verifying no message is received
+        StatefulRedisMultiDbPubSubConnection<String, String> oldPublisher = client.connectPubSub();
+        oldPublisher.sync().publish("unsubtest", "Message from old endpoint after unsubscribe");
+
+        // Verify no message is received from old endpoint
+        String unexpectedMessage = messages.poll(1, TimeUnit.SECONDS);
+        assertThat(unexpectedMessage).isNull();
+
+        // Now verify that the new endpoint still receives messages
+        // by re-subscribing on the new endpoint
+        pubsub.sync().subscribe("unsubtest");
+
+        // Publish on the new endpoint
+        StatefulRedisMultiDbPubSubConnection<String, String> newPublisher = client.connectPubSub();
+        newPublisher.switchToDatabase(secondDb);
+        newPublisher.sync().publish("unsubtest", "Message from new endpoint");
+
+        // Verify message is received from new endpoint
+        String expectedMessage = messages.poll(1, TimeUnit.SECONDS);
+        assertEquals("Message from new endpoint", expectedMessage);
+
+        pubsub.close();
+        oldPublisher.close();
+        newPublisher.close();
+    }
+
 }

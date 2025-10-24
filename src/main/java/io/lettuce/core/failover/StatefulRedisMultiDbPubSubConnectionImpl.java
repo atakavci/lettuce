@@ -1,15 +1,13 @@
 package io.lettuce.core.failover;
 
 import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
-import io.lettuce.core.RedisCommandExecutionException;
 import io.lettuce.core.RedisDatabase;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisURI;
@@ -19,19 +17,21 @@ import io.lettuce.core.json.JsonParser;
 import io.lettuce.core.pubsub.RedisPubSubAsyncCommandsImpl;
 import io.lettuce.core.pubsub.RedisPubSubListener;
 import io.lettuce.core.pubsub.RedisPubSubReactiveCommandsImpl;
-import io.lettuce.core.pubsub.StatefulRedisPubSubConnectionImpl;
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands;
 import io.lettuce.core.pubsub.api.reactive.RedisPubSubReactiveCommands;
 import io.lettuce.core.pubsub.api.sync.RedisPubSubCommands;
 import io.lettuce.core.resource.ClientResources;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
-public class StatefulRedisMultiDbPubSubConnectionImpl<C extends StatefulRedisPubSubConnectionImpl<K, V>, K, V>
-        extends StatefulRedisMultiDbConnectionImpl<C, K, V> implements StatefulRedisMultiDbPubSubConnection<K, V> {
+public class StatefulRedisMultiDbPubSubConnectionImpl<K, V>
+        extends StatefulRedisMultiDbConnectionImpl<StatefulRedisPubSubConnection<K, V>, K, V>
+        implements StatefulRedisMultiDbPubSubConnection<K, V> {
 
     private final Set<RedisPubSubListener<K, V>> pubSubListeners = ConcurrentHashMap.newKeySet();
 
-    public StatefulRedisMultiDbPubSubConnectionImpl(Map<RedisURI, RedisDatabase<C>> connections, ClientResources resources,
+    public StatefulRedisMultiDbPubSubConnectionImpl(
+            Map<RedisURI, RedisDatabase<StatefulRedisPubSubConnection<K, V>>> connections, ClientResources resources,
             RedisCodec<K, V> codec, Supplier<JsonParser> parser) {
         super(connections, resources, codec, parser);
     }
@@ -39,17 +39,13 @@ public class StatefulRedisMultiDbPubSubConnectionImpl<C extends StatefulRedisPub
     @Override
     public void addListener(RedisPubSubListener<K, V> listener) {
         pubSubListeners.add(listener);
-        StatefulRedisPubSubConnectionImpl<K, V> pubSubConnection = (StatefulRedisPubSubConnectionImpl<K, V>) (current
-                .getConnection());
-        pubSubConnection.addListener(listener);
+        current.getConnection().addListener(listener);
     }
 
     @Override
     public void removeListener(RedisPubSubListener<K, V> listener) {
         pubSubListeners.remove(listener);
-        StatefulRedisPubSubConnectionImpl<K, V> pubSubConnection = (StatefulRedisPubSubConnectionImpl<K, V>) (current
-                .getConnection());
-        pubSubConnection.removeListener(listener);
+        current.getConnection().removeListener(listener);
     }
 
     @Override
@@ -85,41 +81,54 @@ public class StatefulRedisMultiDbPubSubConnectionImpl<C extends StatefulRedisPub
     @Override
     public void switchToDatabase(RedisURI redisURI) {
 
-        RedisDatabase<C> fromDb = current;
+        RedisDatabase<StatefulRedisPubSubConnection<K, V>> fromDb = current;
         super.switchToDatabase(redisURI);
         pubSubListeners.forEach(listener -> {
-            ((StatefulRedisPubSubConnectionImpl<K, V>) (current.getConnection())).addListener(listener);
-            ((StatefulRedisPubSubConnectionImpl<K, V>) (fromDb.getConnection())).removeListener(listener);
+            current.getConnection().addListener(listener);
+            fromDb.getConnection().removeListener(listener);
         });
+
         moveSubscriptions(fromDb, current);
     }
 
-    public void moveSubscriptions(RedisDatabase<?> fromDb, RedisDatabase<?> toDb) {
+    public void moveSubscriptions(RedisDatabase<StatefulRedisPubSubConnection<K, V>> fromDb,
+            RedisDatabase<StatefulRedisPubSubConnection<K, V>> toDb) {
 
         AdvancedPubSubEndpoint<K, V> fromEndpoint = (AdvancedPubSubEndpoint<K, V>) fromDb.getCommandQueue();
-
-        List<RedisFuture<Void>> resubscribeList = new ArrayList<>();
+        StatefulRedisPubSubConnection<K, V> fromConn = (StatefulRedisPubSubConnection<K, V>) fromDb.getConnection();
 
         if (fromEndpoint.hasChannelSubscriptions()) {
-            resubscribeList.add(async().subscribe(toArray(fromEndpoint.getChannels())));
+            K[] channels = toArray(fromEndpoint.getChannels());
+            moveSubscriptions(channels, async()::subscribe, fromConn.async()::unsubscribe);
         }
 
         if (fromEndpoint.hasShardChannelSubscriptions()) {
-            resubscribeList.add(async().ssubscribe(toArray(fromEndpoint.getShardChannels())));
+            K[] shardChannels = toArray(fromEndpoint.getShardChannels());
+            moveSubscriptions(shardChannels, async()::ssubscribe, fromConn.async()::sunsubscribe);
         }
 
         if (fromEndpoint.hasPatternSubscriptions()) {
-            resubscribeList.add(async().psubscribe(toArray(fromEndpoint.getPatterns())));
+            K[] patterns = toArray(fromEndpoint.getPatterns());
+            moveSubscriptions(patterns, async()::psubscribe, fromConn.async()::punsubscribe);
         }
+    }
 
-        for (RedisFuture<Void> command : resubscribeList) {
-            command.exceptionally(throwable -> {
-                if (throwable instanceof RedisCommandExecutionException) {
-                    InternalLoggerFactory.getInstance(getClass()).warn("Re-subscribe failed: " + command.getError());
-                }
-                return null;
-            });
-        }
+    private void moveSubscriptions(K[] channels, Function<K[], RedisFuture<Void>> subscribeFunc,
+            Function<K[], RedisFuture<Void>> unsubscribeFunc) {
+        // Re-subscribe to new endpoint
+        RedisFuture<Void> subscribeFuture = subscribeFunc.apply(channels);
+        handlePubSubCommandError(subscribeFuture, "Re-subscribe failed: ");
+
+        // Unsubscribe from old endpoint on best effort basis
+        RedisFuture<Void> unsubscribeFuture = unsubscribeFunc.apply(channels);
+        handlePubSubCommandError(unsubscribeFuture, "Unsubscribe from old endpoint failed (best effort): ");
+    }
+
+    private void handlePubSubCommandError(RedisFuture<Void> future, String message) {
+        future.exceptionally(throwable -> {
+            InternalLoggerFactory.getInstance(getClass()).warn(message + future.getError());
+            return null;
+        });
     }
 
     @SuppressWarnings("unchecked")

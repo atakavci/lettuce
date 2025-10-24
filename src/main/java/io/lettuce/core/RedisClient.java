@@ -842,11 +842,6 @@ public class RedisClient extends AbstractRedisClient {
         checkValidRedisURI(this.redisURI);
     }
 
-    protected static AbstractInvocationHandler getFutureSyncInvocationHandler(StatefulConnection<?, ?> connection,
-            Object asyncApi, Class<?>... interfaces) {
-        return new FutureSyncInvocationHandler(connection, asyncApi, interfaces);
-    }
-
     protected DefaultEndpoint createEndpoint() {
         return new DefaultEndpoint(getOptions(), getResources());
     }

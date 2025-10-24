@@ -104,23 +104,18 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
             throw new IllegalArgumentException("codec must not be null");
         }
 
-        Map<RedisURI, RedisDatabase<StatefulRedisPubSubConnectionImpl<K, V>>> databases = new ConcurrentHashMap<>(
-                endpoints.size());
+        Map<RedisURI, RedisDatabase<StatefulRedisPubSubConnection<K, V>>> databases = new ConcurrentHashMap<>(endpoints.size());
         for (RedisURI uri : endpoints) {
-            // HACK: looks like repeating the implementation all around 'RedisClient.connectPubSub' is an overkill.
-            // connections.put(uri, connectPubSub(codec, uri));
-            // Instead we will use it from delegate
-            StatefulRedisPubSubConnectionImpl<K, V> connection = (StatefulRedisPubSubConnectionImpl<K, V>) connectPubSub(codec,
-                    uri);
+            StatefulRedisPubSubConnection<K, V> connection = connectPubSub(codec, uri);
             databases.put(uri, new RedisDatabase<>(uri, 1 / getChannelCount(), connection, getCommandQueue(connection)));
         }
 
-        return new StatefulRedisMultiDbPubSubConnectionImpl<StatefulRedisPubSubConnectionImpl<K, V>, K, V>(databases,
-                getResources(), codec, getOptions().getJsonParser());
+        return new StatefulRedisMultiDbPubSubConnectionImpl<K, V>(databases, getResources(), codec,
+                getOptions().getJsonParser());
     }
 
-    private ManagedCommandQueue getCommandQueue(StatefulRedisConnectionImpl<?, ?> connection) {
-        RedisChannelWriter writer = connection.getChannelWriter();
+    private ManagedCommandQueue getCommandQueue(StatefulRedisConnection<?, ?> connection) {
+        RedisChannelWriter writer = ((StatefulRedisConnectionImpl<?, ?>) connection).getChannelWriter();
         if (writer instanceof Delegating) {
             writer = (RedisChannelWriter) ((Delegating<?>) writer).unwrap();
         }
