@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.StreamSupport;
 
 import javax.inject.Inject;
@@ -202,20 +203,17 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
         // Subscribe on first database
         pubsub.sync().subscribe("switchchannel");
 
-        // Switch to second database
+        // Switch to second database - subscriptions are automatically re-subscribed
         RedisURI other = StreamSupport.stream(pubsub.getEndpoints().spliterator(), false)
                 .filter(uri -> !uri.equals(pubsub.getCurrentEndpoint())).findFirst().get();
         pubsub.switchToDatabase(other);
-
-        // Subscribe on second database
-        pubsub.sync().subscribe("switchchannel");
 
         // Publish from another connection on second database
         StatefulRedisMultiDbPubSubConnection<String, String> publisher = client.connectPubSub();
         publisher.switchToDatabase(other);
         publisher.sync().publish("switchchannel", "Message after switch");
 
-        String message = messages.take();
+        String message = messages.poll(1, TimeUnit.SECONDS);
         assertEquals("Message after switch", message);
 
         pubsub.close();

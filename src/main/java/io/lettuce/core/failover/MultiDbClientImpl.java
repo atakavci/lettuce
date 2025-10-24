@@ -69,7 +69,7 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
             throw new IllegalArgumentException("codec must not be null");
         }
 
-        Map<RedisURI, RedisDatabase<K, V>> databases = new ConcurrentHashMap<>(endpoints.size());
+        Map<RedisURI, RedisDatabase<StatefulRedisConnectionImpl<K, V>>> databases = new ConcurrentHashMap<>(endpoints.size());
         for (RedisURI uri : endpoints) {
             // HACK: looks like repeating the implementation all around 'RedisClient.connect' is an overkill.
             // connections.put(uri, connect(codec, uri));
@@ -79,7 +79,8 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
             databases.put(uri, new RedisDatabase<>(uri, 1 / getChannelCount(), connection, getCommandQueue(connection)));
         }
 
-        return new StatefulRedisMultiDbConnectionImpl<>(databases, getResources(), codec, getOptions().getJsonParser());
+        return new StatefulRedisMultiDbConnectionImpl<StatefulRedisConnectionImpl<K, V>, K, V>(databases, getResources(), codec,
+                getOptions().getJsonParser());
     }
 
     /**
@@ -103,7 +104,8 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
             throw new IllegalArgumentException("codec must not be null");
         }
 
-        Map<RedisURI, RedisDatabase<K, V>> databases = new ConcurrentHashMap<>(endpoints.size());
+        Map<RedisURI, RedisDatabase<StatefulRedisPubSubConnectionImpl<K, V>>> databases = new ConcurrentHashMap<>(
+                endpoints.size());
         for (RedisURI uri : endpoints) {
             // HACK: looks like repeating the implementation all around 'RedisClient.connectPubSub' is an overkill.
             // connections.put(uri, connectPubSub(codec, uri));
@@ -113,7 +115,8 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
             databases.put(uri, new RedisDatabase<>(uri, 1 / getChannelCount(), connection, getCommandQueue(connection)));
         }
 
-        return new StatefulRedisMultiDbPubSubConnectionImpl<>(databases, getResources(), codec, getOptions().getJsonParser());
+        return new StatefulRedisMultiDbPubSubConnectionImpl<StatefulRedisPubSubConnectionImpl<K, V>, K, V>(databases,
+                getResources(), codec, getOptions().getJsonParser());
     }
 
     private ManagedCommandQueue getCommandQueue(StatefulRedisConnectionImpl<?, ?> connection) {

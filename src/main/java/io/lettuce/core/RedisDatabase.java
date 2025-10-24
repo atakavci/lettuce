@@ -6,20 +6,19 @@ import io.lettuce.core.failover.ManagedCommandQueue;
 /**
  * Represents a Redis database with a weight and a connection.
  *
- * @param <K> Key type.
- * @param <V> Value type.
+ * @param <C> Connection type.
  */
-public class RedisDatabase<K, V> {
+public class RedisDatabase<C extends StatefulRedisConnection<?, ?>> {
 
     private final float weight;
 
-    private final StatefulRedisConnection<K, V> connection;
+    private final C connection;
 
     private final RedisURI redisURI;
 
     private final ManagedCommandQueue managedCommandQueue;
 
-    public RedisDatabase(RedisURI redisURI, float weight, StatefulRedisConnection<K, V> connection, ManagedCommandQueue managedCommandQueue) {
+    public RedisDatabase(RedisURI redisURI, float weight, C connection, ManagedCommandQueue managedCommandQueue) {
         this.redisURI = redisURI;
         this.weight = weight;
         this.connection = connection;
@@ -30,7 +29,7 @@ public class RedisDatabase<K, V> {
         return weight;
     }
 
-    public StatefulRedisConnection<K, V> getConnection() {
+    public C getConnection() {
         return connection;
     }
 

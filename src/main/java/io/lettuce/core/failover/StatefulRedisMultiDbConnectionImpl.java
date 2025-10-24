@@ -19,6 +19,7 @@ import io.lettuce.core.RedisDatabase;
 import io.lettuce.core.RedisReactiveCommandsImpl;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulConnection;
+import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.api.push.PushListener;
 import io.lettuce.core.api.reactive.RedisReactiveCommands;
@@ -36,11 +37,12 @@ import io.lettuce.core.resource.ClientResources;
  * interfaces (sync/async/reactive) are dynamic proxies that always target the current active connection at invocation time so
  * they remain valid across switches.
  */
-public class StatefulRedisMultiDbConnectionImpl<K, V> implements StatefulRedisMultiDbConnection<K, V> {
+public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnection<K, V>, K, V>
+        implements StatefulRedisMultiDbConnection<K, V> {
 
-    protected final Map<RedisURI, RedisDatabase<K, V>> databases;
+    protected final Map<RedisURI, RedisDatabase<C>> databases;
 
-    protected RedisDatabase<K, V> current;
+    protected RedisDatabase<C> current;
 
     protected final RedisCommands<K, V> sync;
 
@@ -58,7 +60,7 @@ public class StatefulRedisMultiDbConnectionImpl<K, V> implements StatefulRedisMu
 
     // private final ClientResources clientResources;
 
-    public StatefulRedisMultiDbConnectionImpl(Map<RedisURI, RedisDatabase<K, V>> connections, ClientResources resources,
+    public StatefulRedisMultiDbConnectionImpl(Map<RedisURI, RedisDatabase<C>> connections, ClientResources resources,
             RedisCodec<K, V> codec, Supplier<JsonParser> parser) {
         if (connections == null || connections.isEmpty()) {
             throw new IllegalArgumentException("connections must not be empty");
@@ -219,8 +221,8 @@ public class StatefulRedisMultiDbConnectionImpl<K, V> implements StatefulRedisMu
 
     @Override
     public void switchToDatabase(RedisURI redisURI) {
-        RedisDatabase<K, V> fromDb = current;
-        RedisDatabase<K, V> toDb = databases.get(redisURI);
+        RedisDatabase<C> fromDb = current;
+        RedisDatabase<C> toDb = databases.get(redisURI);
         if (fromDb == null || toDb == null) {
             throw new UnsupportedOperationException("Cannot initiate switch without a current and target database!");
         }
