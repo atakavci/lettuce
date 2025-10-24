@@ -4,13 +4,13 @@ import java.util.List;
 
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisException;
-import io.lettuce.core.protocol.DefaultEndpoint;
 import io.lettuce.core.protocol.RedisCommand;
+import io.lettuce.core.pubsub.PubSubEndpoint;
 import io.lettuce.core.resource.ClientResources;
 
-public class AdvancedEndpoint extends DefaultEndpoint implements ManagedCommandQueue {
+public class AdvancedPubSubEndpoint<K, V> extends PubSubEndpoint<K, V> implements ManagedCommandQueue {
 
-    public AdvancedEndpoint(ClientOptions clientOptions, ClientResources clientResources) {
+    public AdvancedPubSubEndpoint(ClientOptions clientOptions, ClientResources clientResources) {
         super(clientOptions, clientResources);
     }
 

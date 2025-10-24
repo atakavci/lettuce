@@ -219,8 +219,8 @@ public class StatefulRedisMultiDbConnectionImpl<K, V> implements StatefulRedisMu
 
     @Override
     public void switchToDatabase(RedisURI redisURI) {
-        RedisDatabase fromDb = current;
-        RedisDatabase toDb = databases.get(redisURI);
+        RedisDatabase<K, V> fromDb = current;
+        RedisDatabase<K, V> toDb = databases.get(redisURI);
         if (fromDb == null || toDb == null) {
             throw new UnsupportedOperationException("Cannot initiate switch without a current and target database!");
         }
@@ -233,7 +233,7 @@ public class StatefulRedisMultiDbConnectionImpl<K, V> implements StatefulRedisMu
             toDb.getConnection().addListener(listener);
             fromDb.getConnection().removeListener(listener);
         });
-        fromDb.getEndpoint().handOverCommandQueue(toDb.getEndpoint());
+        fromDb.getCommandQueue().handOverCommandQueue(toDb.getCommandQueue());
     }
 
 }

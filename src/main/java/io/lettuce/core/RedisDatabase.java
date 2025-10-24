@@ -1,7 +1,7 @@
 package io.lettuce.core;
 
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.failover.AdvancedEndpoint;
+import io.lettuce.core.failover.ManagedCommandQueue;
 
 /**
  * Represents a Redis database with a weight and a connection.
@@ -17,13 +17,13 @@ public class RedisDatabase<K, V> {
 
     private final RedisURI redisURI;
 
-    private final AdvancedEndpoint endpoint;
+    private final ManagedCommandQueue managedCommandQueue;
 
-    public RedisDatabase(RedisURI redisURI, float weight, StatefulRedisConnection<K, V> connection, AdvancedEndpoint endpoint) {
+    public RedisDatabase(RedisURI redisURI, float weight, StatefulRedisConnection<K, V> connection, ManagedCommandQueue managedCommandQueue) {
         this.redisURI = redisURI;
         this.weight = weight;
         this.connection = connection;
-        this.endpoint = endpoint;
+        this.managedCommandQueue = managedCommandQueue;
     }
 
     public float getWeight() {
@@ -38,8 +38,8 @@ public class RedisDatabase<K, V> {
         return redisURI;
     }
 
-    public AdvancedEndpoint getEndpoint() {
-        return endpoint;
+    public ManagedCommandQueue getCommandQueue() {
+        return managedCommandQueue;
     }
 
 }

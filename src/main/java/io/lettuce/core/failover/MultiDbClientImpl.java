@@ -22,6 +22,9 @@ import io.lettuce.core.internal.LettuceAssert;
 import io.lettuce.core.protocol.CommandExpiryWriter;
 import io.lettuce.core.protocol.CommandHandler;
 import io.lettuce.core.protocol.DefaultEndpoint;
+import io.lettuce.core.pubsub.PubSubEndpoint;
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnectionImpl;
 import io.lettuce.core.resource.ClientResources;
 
 /**
@@ -54,11 +57,11 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
         return connect(newStringStringCodec());
     }
 
-    public StatefulRedisMultiDbConnection<String, String> connect(RedisURI redisURI) {
-        endpoints.clear();
-        endpoints.add(redisURI);
-        return connect(newStringStringCodec());
-    }
+    // public StatefulRedisMultiDbConnection<String, String> connect(RedisURI redisURI) {
+    // endpoints.clear();
+    // endpoints.add(redisURI);
+    // return connect(newStringStringCodec());
+    // }
 
     public <K, V> StatefulRedisMultiDbConnection<K, V> connect(RedisCodec<K, V> codec) {
 
@@ -72,7 +75,8 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
             // connections.put(uri, connect(codec, uri));
             // Instead we will use it from delegate
             StatefulRedisConnectionImpl<K, V> connection = (StatefulRedisConnectionImpl<K, V>) connect(codec, uri);
-            databases.put(uri, new RedisDatabase<>(uri, 1 / getChannelCount(), connection, getEndpoint(connection)));
+            // TODO: 1 / getChannelCount() is a hack. Just introduce the weight parameter properly.
+            databases.put(uri, new RedisDatabase<>(uri, 1 / getChannelCount(), connection, getCommandQueue(connection)));
         }
 
         return new StatefulRedisMultiDbConnectionImpl<>(databases, getResources(), codec, getOptions().getJsonParser());
@@ -87,11 +91,11 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
         return connectPubSub(newStringStringCodec());
     }
 
-    public StatefulRedisMultiDbPubSubConnection<String, String> connectPubSub(RedisURI redisURI) {
-        endpoints.clear();
-        endpoints.add(redisURI);
-        return connectPubSub(newStringStringCodec());
-    }
+    // public StatefulRedisMultiDbPubSubConnection<String, String> connectPubSub(RedisURI redisURI) {
+    // endpoints.clear();
+    // endpoints.add(redisURI);
+    // return connectPubSub(newStringStringCodec());
+    // }
 
     public <K, V> StatefulRedisMultiDbPubSubConnection<K, V> connectPubSub(RedisCodec<K, V> codec) {
 
@@ -101,24 +105,23 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
 
         Map<RedisURI, RedisDatabase<K, V>> databases = new ConcurrentHashMap<>(endpoints.size());
         for (RedisURI uri : endpoints) {
-            // HACK: looks like repeating the implementation all around 'RedisClient.connect' is an overkill.
-            // connections.put(uri, connect(codec, uri));
+            // HACK: looks like repeating the implementation all around 'RedisClient.connectPubSub' is an overkill.
+            // connections.put(uri, connectPubSub(codec, uri));
             // Instead we will use it from delegate
-            StatefulRedisConnectionImpl<K, V> connection = (StatefulRedisConnectionImpl<K, V>) connect(codec, uri);
-            databases.put(uri, new RedisDatabase<>(uri, 1 / getChannelCount(), connection, getEndpoint(connection)));
+            StatefulRedisPubSubConnectionImpl<K, V> connection = (StatefulRedisPubSubConnectionImpl<K, V>) connectPubSub(codec,
+                    uri);
+            databases.put(uri, new RedisDatabase<>(uri, 1 / getChannelCount(), connection, getCommandQueue(connection)));
         }
 
         return new StatefulRedisMultiDbPubSubConnectionImpl<>(databases, getResources(), codec, getOptions().getJsonParser());
     }
 
-    private AdvancedEndpoint getEndpoint(StatefulRedisConnectionImpl<?, ?> connection) {
+    private ManagedCommandQueue getCommandQueue(StatefulRedisConnectionImpl<?, ?> connection) {
         RedisChannelWriter writer = connection.getChannelWriter();
         if (writer instanceof Delegating) {
-            @SuppressWarnings("unchecked")
-            Delegating<RedisChannelWriter> delegating = ((Delegating<RedisChannelWriter>) writer);
-            writer = delegating.unwrap();
+            writer = (RedisChannelWriter) ((Delegating<?>) writer).unwrap();
         }
-        return (AdvancedEndpoint) writer;
+        return (ManagedCommandQueue) writer;
     }
 
     // @Override
@@ -175,6 +178,11 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
     @Override
     protected DefaultEndpoint createEndpoint() {
         return new AdvancedEndpoint(getOptions(), getResources());
+    }
+
+    @Override
+    protected <K, V> PubSubEndpoint<K, V> createPubSubEndpoint() {
+        return new AdvancedPubSubEndpoint<>(getOptions(), getResources());
     }
 
 }

@@ -4,6 +4,7 @@ import java.util.List;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.codec.RedisCodec;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
+import io.lettuce.core.failover.api.StatefulRedisMultiDbPubSubConnection;
 import io.lettuce.core.resource.ClientResources;
 
 public interface MultiDbClient extends BaseClient {
@@ -32,5 +33,9 @@ public interface MultiDbClient extends BaseClient {
     <K, V> StatefulRedisMultiDbConnection<K, V> connect(RedisCodec<K, V> codec);
 
     StatefulRedisMultiDbConnection<String, String> connect();
+
+    <K, V> StatefulRedisMultiDbPubSubConnection<K, V> connectPubSub(RedisCodec<K, V> codec);
+
+    StatefulRedisMultiDbPubSubConnection<String, String> connectPubSub();
 
 }
