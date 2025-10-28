@@ -76,7 +76,16 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
             // Instead we will use it from delegate
             StatefulRedisConnectionImpl<K, V> connection = (StatefulRedisConnectionImpl<K, V>) connect(codec, uri);
             // TODO: 1 / getChannelCount() is a hack. Just introduce the weight parameter properly.
-            databases.put(uri, new RedisDatabase<>(uri, 1 / getChannelCount(), connection, getCommandQueue(connection)));
+            RedisDatabase<StatefulRedisConnectionImpl<K, V>> database = new RedisDatabase<>(uri, 1 / getChannelCount(),
+                    connection, getCommandQueue(connection));
+
+            // Set circuit breaker on the endpoint
+            ManagedCommandQueue commandQueue = database.getCommandQueue();
+            if (commandQueue instanceof AdvancedEndpoint) {
+                ((AdvancedEndpoint) commandQueue).setCircuitBreaker(database.getCircuitBreaker());
+            }
+
+            databases.put(uri, database);
         }
 
         return new StatefulRedisMultiDbConnectionImpl<StatefulRedisConnectionImpl<K, V>, K, V>(databases, getResources(), codec,
@@ -107,7 +116,16 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
         Map<RedisURI, RedisDatabase<StatefulRedisPubSubConnection<K, V>>> databases = new ConcurrentHashMap<>(endpoints.size());
         for (RedisURI uri : endpoints) {
             StatefulRedisPubSubConnection<K, V> connection = connectPubSub(codec, uri);
-            databases.put(uri, new RedisDatabase<>(uri, 1 / getChannelCount(), connection, getCommandQueue(connection)));
+            RedisDatabase<StatefulRedisPubSubConnection<K, V>> database = new RedisDatabase<>(uri, 1 / getChannelCount(),
+                    connection, getCommandQueue(connection));
+
+            // Set circuit breaker on the endpoint
+            ManagedCommandQueue commandQueue = database.getCommandQueue();
+            if (commandQueue instanceof AdvancedPubSubEndpoint) {
+                ((AdvancedPubSubEndpoint<?, ?>) commandQueue).setCircuitBreaker(database.getCircuitBreaker());
+            }
+
+            databases.put(uri, database);
         }
 
         return new StatefulRedisMultiDbPubSubConnectionImpl<K, V>(databases, getResources(), codec,

@@ -1,18 +1,18 @@
 package io.lettuce.core.failover;
 
-import java.util.List;
+import java.util.Collection;
 
 import io.lettuce.core.RedisException;
 import io.lettuce.core.protocol.RedisCommand;
 
 public interface ManagedCommandQueue {
 
-    List<RedisCommand<?, ?, ?>> drainCommands();
+    Collection<RedisCommand<?, ?, ?>> drainCommands();
 
     <K, V, T> RedisCommand<K, V, T> write(RedisCommand<K, V, T> command);
 
     default void handOverCommandQueue(ManagedCommandQueue target) {
-        List<RedisCommand<?, ?, ?>> commands = this.drainCommands();
+        Collection<RedisCommand<?, ?, ?>> commands = this.drainCommands();
 
         for (RedisCommand<?, ?, ?> queuedCommand : commands) {
             if (queuedCommand == null || queuedCommand.isCancelled()) {

@@ -238,4 +238,13 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
         fromDb.getCommandQueue().handOverCommandQueue(toDb.getCommandQueue());
     }
 
+    @Override
+    public CircuitBreaker getCircuitBreaker(RedisURI endpoint) {
+        RedisDatabase<C> database = databases.get(endpoint);
+        if (database == null) {
+            throw new IllegalArgumentException("Unknown endpoint: " + endpoint);
+        }
+        return database.getCircuitBreaker();
+    }
+
 }
