@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import io.lettuce.core.RedisDatabase;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.codec.RedisCodec;
@@ -94,7 +93,7 @@ public class StatefulRedisMultiDbPubSubConnectionImpl<K, V>
     public void moveSubscriptions(RedisDatabase<StatefulRedisPubSubConnection<K, V>> fromDb,
             RedisDatabase<StatefulRedisPubSubConnection<K, V>> toDb) {
 
-        AdvancedPubSubEndpoint<K, V> fromEndpoint = (AdvancedPubSubEndpoint<K, V>) fromDb.getCommandQueue();
+        DatabasePubSubEndpoint<K, V> fromEndpoint = (DatabasePubSubEndpoint<K, V>) fromDb.getCommandQueue();
         StatefulRedisPubSubConnection<K, V> fromConn = (StatefulRedisPubSubConnection<K, V>) fromDb.getConnection();
 
         if (fromEndpoint.hasChannelSubscriptions()) {

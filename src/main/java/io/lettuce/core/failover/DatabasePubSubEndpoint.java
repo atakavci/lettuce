@@ -5,21 +5,21 @@ import java.util.List;
 
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.protocol.CompleteableCommand;
-import io.lettuce.core.protocol.DefaultEndpoint;
 import io.lettuce.core.protocol.RedisCommand;
+import io.lettuce.core.pubsub.PubSubEndpoint;
 import io.lettuce.core.resource.ClientResources;
 
 /**
- * Advanced endpoint for multi-database failover with circuit breaker metrics tracking. Extends DefaultEndpoint and tracks
- * command attempts, successes, and failures.
+ * Database PubSub endpoint for multi-database failover with circuit breaker metrics tracking. Extends PubSubEndpoint and tracks
+ * command successes and failures.
  *
  * @author Augment
  */
-public class AdvancedEndpoint extends DefaultEndpoint implements ManagedCommandQueue {
+public class DatabasePubSubEndpoint<K, V> extends PubSubEndpoint<K, V> implements ManagedCommandQueue {
 
     private CircuitBreaker circuitBreaker;
 
-    public AdvancedEndpoint(ClientOptions clientOptions, ClientResources clientResources) {
+    public DatabasePubSubEndpoint(ClientOptions clientOptions, ClientResources clientResources) {
         super(clientOptions, clientResources);
     }
 
@@ -42,17 +42,13 @@ public class AdvancedEndpoint extends DefaultEndpoint implements ManagedCommandQ
     }
 
     @Override
-    public <K, V, T> RedisCommand<K, V, T> write(RedisCommand<K, V, T> command) {
-        // Track attempt
-        if (circuitBreaker != null) {
-            circuitBreaker.recordAttempt();
-        }
-
+    public <K1, V1, T> RedisCommand<K1, V1, T> write(RedisCommand<K1, V1, T> command) {
         // Delegate to parent
-        RedisCommand<K, V, T> result = super.write(command);
+        RedisCommand<K1, V1, T> result = super.write(command);
 
         // Attach completion callback to track success/failure
         if (circuitBreaker != null && result instanceof CompleteableCommand) {
+            @SuppressWarnings("unchecked")
             CompleteableCommand<T> completeable = (CompleteableCommand<T>) result;
             completeable.onComplete((output, error) -> {
                 if (error != null) {
@@ -67,21 +63,13 @@ public class AdvancedEndpoint extends DefaultEndpoint implements ManagedCommandQ
     }
 
     @Override
-    public <K, V> Collection<RedisCommand<K, V, ?>> write(Collection<? extends RedisCommand<K, V, ?>> commands) {
-        // Track each command individually
-        if (circuitBreaker != null) {
-            for (@SuppressWarnings("unused")
-            RedisCommand<?, ?, ?> command : commands) {
-                circuitBreaker.recordAttempt();
-            }
-        }
-
+    public <K1, V1> Collection<RedisCommand<K1, V1, ?>> write(Collection<? extends RedisCommand<K1, V1, ?>> commands) {
         // Delegate to parent
-        Collection<RedisCommand<K, V, ?>> result = super.write(commands);
+        Collection<RedisCommand<K1, V1, ?>> result = super.write(commands);
 
         // Attach completion callbacks to track success/failure for each command
         if (circuitBreaker != null) {
-            for (RedisCommand<K, V, ?> command : result) {
+            for (RedisCommand<K1, V1, ?> command : result) {
                 if (command instanceof CompleteableCommand) {
                     @SuppressWarnings("unchecked")
                     CompleteableCommand<Object> completeable = (CompleteableCommand<Object>) command;

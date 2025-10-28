@@ -15,7 +15,6 @@ import io.lettuce.core.ClientOptions;
 import io.lettuce.core.FutureSyncInvocationHandler;
 import io.lettuce.core.RedisAsyncCommandsImpl;
 import io.lettuce.core.RedisConnectionStateListener;
-import io.lettuce.core.RedisDatabase;
 import io.lettuce.core.RedisReactiveCommandsImpl;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulConnection;

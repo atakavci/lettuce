@@ -1,7 +1,5 @@
 package io.lettuce.core.failover;
 
-import io.lettuce.core.RedisURI;
-
 /**
  * Circuit breaker for tracking command metrics and managing circuit breaker state. Wraps CircuitBreakerMetrics and provides
  * methods to record command outcomes.
@@ -13,12 +11,10 @@ public class CircuitBreaker {
     private final CircuitBreakerMetrics metrics;
 
     /**
-     * Create a circuit breaker for a specific endpoint.
-     *
-     * @param endpoint the Redis endpoint URI
+     * Create a circuit breaker instance.
      */
-    public CircuitBreaker(RedisURI endpoint) {
-        this.metrics = new CircuitBreakerMetrics(endpoint);
+    public CircuitBreaker() {
+        this.metrics = new CircuitBreakerMetrics();
     }
 
     /**
@@ -28,13 +24,6 @@ public class CircuitBreaker {
      */
     public CircuitBreakerMetrics getMetrics() {
         return metrics;
-    }
-
-    /**
-     * Record a command attempt.
-     */
-    public void recordAttempt() {
-        metrics.recordAttempt();
     }
 
     /**
@@ -51,24 +40,6 @@ public class CircuitBreaker {
      */
     public void recordFailure(Throwable error) {
         metrics.recordFailure(error);
-    }
-
-    /**
-     * Get the endpoint this circuit breaker tracks.
-     *
-     * @return the Redis endpoint URI
-     */
-    public RedisURI getEndpoint() {
-        return metrics.getEndpoint();
-    }
-
-    /**
-     * Get the total number of command attempts.
-     *
-     * @return attempt count
-     */
-    public long getAttemptCount() {
-        return metrics.getAttemptCount();
     }
 
     /**

@@ -11,7 +11,6 @@ import io.lettuce.core.ConnectionFuture;
 import io.lettuce.core.Delegating;
 import io.lettuce.core.RedisChannelWriter;
 import io.lettuce.core.RedisClient;
-import io.lettuce.core.RedisDatabase;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.StatefulRedisConnectionImpl;
 import io.lettuce.core.api.StatefulRedisConnection;
@@ -81,8 +80,8 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
 
             // Set circuit breaker on the endpoint
             ManagedCommandQueue commandQueue = database.getCommandQueue();
-            if (commandQueue instanceof AdvancedEndpoint) {
-                ((AdvancedEndpoint) commandQueue).setCircuitBreaker(database.getCircuitBreaker());
+            if (commandQueue instanceof DatabaseEndpoint) {
+                ((DatabaseEndpoint) commandQueue).setCircuitBreaker(database.getCircuitBreaker());
             }
 
             databases.put(uri, database);
@@ -121,8 +120,8 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
 
             // Set circuit breaker on the endpoint
             ManagedCommandQueue commandQueue = database.getCommandQueue();
-            if (commandQueue instanceof AdvancedPubSubEndpoint) {
-                ((AdvancedPubSubEndpoint<?, ?>) commandQueue).setCircuitBreaker(database.getCircuitBreaker());
+            if (commandQueue instanceof DatabasePubSubEndpoint) {
+                ((DatabasePubSubEndpoint<?, ?>) commandQueue).setCircuitBreaker(database.getCircuitBreaker());
             }
 
             databases.put(uri, database);
@@ -193,12 +192,12 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
 
     @Override
     protected DefaultEndpoint createEndpoint() {
-        return new AdvancedEndpoint(getOptions(), getResources());
+        return new DatabaseEndpoint(getOptions(), getResources());
     }
 
     @Override
     protected <K, V> PubSubEndpoint<K, V> createPubSubEndpoint() {
-        return new AdvancedPubSubEndpoint<>(getOptions(), getResources());
+        return new DatabasePubSubEndpoint<>(getOptions(), getResources());
     }
 
 }

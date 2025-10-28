@@ -1,8 +1,7 @@
-package io.lettuce.core;
+package io.lettuce.core.failover;
 
+import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.failover.CircuitBreaker;
-import io.lettuce.core.failover.ManagedCommandQueue;
 
 /**
  * Represents a Redis database with a weight and a connection.
@@ -26,7 +25,7 @@ public class RedisDatabase<C extends StatefulRedisConnection<?, ?>> {
         this.weight = weight;
         this.connection = connection;
         this.managedCommandQueue = managedCommandQueue;
-        this.circuitBreaker = new CircuitBreaker(redisURI);
+        this.circuitBreaker = new CircuitBreaker();
     }
 
     public float getWeight() {

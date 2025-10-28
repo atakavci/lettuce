@@ -71,7 +71,6 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
         // Get metrics
         CircuitBreaker cb = connection.getCircuitBreaker(endpoint);
         assertNotNull(cb);
-        assertThat(cb.getAttemptCount()).isGreaterThanOrEqualTo(1);
         assertThat(cb.getSuccessCount()).isGreaterThanOrEqualTo(1);
         assertThat(cb.getFailureCount()).isEqualTo(0);
 
@@ -90,7 +89,6 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
 
         // Get metrics
         CircuitBreaker cb = connection.getCircuitBreaker(endpoint);
-        assertThat(cb.getAttemptCount()).isGreaterThanOrEqualTo(3);
         assertThat(cb.getSuccessCount()).isGreaterThanOrEqualTo(3);
         assertThat(cb.getFailureCount()).isEqualTo(0);
 
@@ -120,8 +118,8 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
         CircuitBreaker cb2 = connection.getCircuitBreaker(secondEndpoint);
 
         // Verify isolation - each endpoint has its own metrics
-        assertThat(cb1.getAttemptCount()).isGreaterThanOrEqualTo(1);
-        assertThat(cb2.getAttemptCount()).isGreaterThanOrEqualTo(1);
+        assertThat(cb1.getSuccessCount()).isGreaterThanOrEqualTo(1);
+        assertThat(cb2.getSuccessCount()).isGreaterThanOrEqualTo(1);
 
         connection.close();
     }
@@ -146,7 +144,7 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
         // Execute command on first endpoint
         connection.sync().set("key1", "value1");
         CircuitBreaker cb1Before = connection.getCircuitBreaker(firstEndpoint);
-        long attempts1Before = cb1Before.getAttemptCount();
+        long successes1Before = cb1Before.getSuccessCount();
 
         // Switch to second endpoint
         List<RedisURI> endpoints = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
@@ -163,7 +161,7 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
 
         // Verify metrics for first endpoint are unchanged
         CircuitBreaker cb1After = connection.getCircuitBreaker(firstEndpoint);
-        assertThat(cb1After.getAttemptCount()).isEqualTo(attempts1Before);
+        assertThat(cb1After.getSuccessCount()).isEqualTo(successes1Before);
 
         connection.close();
     }
@@ -181,8 +179,6 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
         CircuitBreaker cb = connection.getCircuitBreaker(endpoint);
         assertNotNull(cb);
         assertNotNull(cb.getMetrics());
-        assertThat(cb.getMetrics().getEndpoint()).isEqualTo(endpoint);
-        assertThat(cb.getAttemptCount()).isGreaterThanOrEqualTo(2);
         assertThat(cb.getSuccessCount()).isGreaterThanOrEqualTo(2);
 
         connection.close();
