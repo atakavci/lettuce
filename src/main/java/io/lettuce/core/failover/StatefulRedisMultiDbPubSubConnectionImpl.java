@@ -93,7 +93,7 @@ public class StatefulRedisMultiDbPubSubConnectionImpl<K, V>
     public void moveSubscriptions(RedisDatabase<StatefulRedisPubSubConnection<K, V>> fromDb,
             RedisDatabase<StatefulRedisPubSubConnection<K, V>> toDb) {
 
-        DatabasePubSubEndpoint<K, V> fromEndpoint = (DatabasePubSubEndpoint<K, V>) fromDb.getCommandQueue();
+        DatabasePubSubEndpointImpl<K, V> fromEndpoint = (DatabasePubSubEndpointImpl<K, V>) fromDb.getDatabaseEndpoint();
         StatefulRedisPubSubConnection<K, V> fromConn = (StatefulRedisPubSubConnection<K, V>) fromDb.getConnection();
 
         if (fromEndpoint.hasChannelSubscriptions()) {

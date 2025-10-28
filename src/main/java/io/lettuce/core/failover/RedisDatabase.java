@@ -16,15 +16,15 @@ public class RedisDatabase<C extends StatefulRedisConnection<?, ?>> {
 
     private final RedisURI redisURI;
 
-    private final ManagedCommandQueue managedCommandQueue;
+    private final DatabaseEndpoint databaseEndpoint;
 
     private final CircuitBreaker circuitBreaker;
 
-    public RedisDatabase(RedisURI redisURI, float weight, C connection, ManagedCommandQueue managedCommandQueue) {
+    public RedisDatabase(RedisURI redisURI, float weight, C connection, DatabaseEndpoint databaseEndpoint) {
         this.redisURI = redisURI;
         this.weight = weight;
         this.connection = connection;
-        this.managedCommandQueue = managedCommandQueue;
+        this.databaseEndpoint = databaseEndpoint;
         this.circuitBreaker = new CircuitBreaker();
     }
 
@@ -40,8 +40,8 @@ public class RedisDatabase<C extends StatefulRedisConnection<?, ?>> {
         return redisURI;
     }
 
-    public ManagedCommandQueue getCommandQueue() {
-        return managedCommandQueue;
+    public DatabaseEndpoint getDatabaseEndpoint() {
+        return databaseEndpoint;
     }
 
     public CircuitBreaker getCircuitBreaker() {

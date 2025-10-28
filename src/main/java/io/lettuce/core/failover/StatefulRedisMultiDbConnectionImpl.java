@@ -234,7 +234,7 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
             toDb.getConnection().addListener(listener);
             fromDb.getConnection().removeListener(listener);
         });
-        fromDb.getCommandQueue().handOverCommandQueue(toDb.getCommandQueue());
+        fromDb.getDatabaseEndpoint().handOverCommandQueue(toDb.getDatabaseEndpoint());
     }
 
     @Override

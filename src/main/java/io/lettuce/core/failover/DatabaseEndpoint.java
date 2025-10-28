@@ -1,95 +1,42 @@
 package io.lettuce.core.failover;
 
 import java.util.Collection;
-import java.util.List;
 
-import io.lettuce.core.ClientOptions;
-import io.lettuce.core.protocol.CompleteableCommand;
-import io.lettuce.core.protocol.DefaultEndpoint;
+import io.lettuce.core.RedisException;
 import io.lettuce.core.protocol.RedisCommand;
-import io.lettuce.core.resource.ClientResources;
 
 /**
- * Database endpoint for multi-database failover with circuit breaker metrics tracking. Extends DefaultEndpoint and tracks
- * command successes and failures.
+ * Database endpoint interface for multi-database failover with circuit breaker metrics tracking.
  *
  * @author Augment
  */
-public class DatabaseEndpoint extends DefaultEndpoint implements ManagedCommandQueue {
+public interface DatabaseEndpoint {
 
-    private CircuitBreaker circuitBreaker;
+    Collection<RedisCommand<?, ?, ?>> drainCommands();
 
-    public DatabaseEndpoint(ClientOptions clientOptions, ClientResources clientResources) {
-        super(clientOptions, clientResources);
-    }
+    <K, V, T> RedisCommand<K, V, T> write(RedisCommand<K, V, T> command);
 
     /**
      * Set the circuit breaker for this endpoint. Must be called before any commands are written.
      *
      * @param circuitBreaker the circuit breaker instance
      */
-    public void setCircuitBreaker(CircuitBreaker circuitBreaker) {
-        this.circuitBreaker = circuitBreaker;
-    }
+    void setCircuitBreaker(CircuitBreaker circuitBreaker);
 
-    /**
-     * Get the circuit breaker for this endpoint.
-     *
-     * @return the circuit breaker instance
-     */
-    public CircuitBreaker getCircuitBreaker() {
-        return circuitBreaker;
-    }
+    default void handOverCommandQueue(DatabaseEndpoint target) {
+        Collection<RedisCommand<?, ?, ?>> commands = this.drainCommands();
 
-    @Override
-    public <K, V, T> RedisCommand<K, V, T> write(RedisCommand<K, V, T> command) {
-        // Delegate to parent
-        RedisCommand<K, V, T> result = super.write(command);
+        for (RedisCommand<?, ?, ?> queuedCommand : commands) {
+            if (queuedCommand == null || queuedCommand.isCancelled()) {
+                continue;
+            }
 
-        // Attach completion callback to track success/failure
-        if (circuitBreaker != null && result instanceof CompleteableCommand) {
-            @SuppressWarnings("unchecked")
-            CompleteableCommand<T> completeable = (CompleteableCommand<T>) result;
-            completeable.onComplete((output, error) -> {
-                if (error != null) {
-                    circuitBreaker.recordFailure(error);
-                } else {
-                    circuitBreaker.recordSuccess();
-                }
-            });
-        }
-
-        return result;
-    }
-
-    @Override
-    public <K, V> Collection<RedisCommand<K, V, ?>> write(Collection<? extends RedisCommand<K, V, ?>> commands) {
-        // Delegate to parent
-        Collection<RedisCommand<K, V, ?>> result = super.write(commands);
-
-        // Attach completion callbacks to track success/failure for each command
-        if (circuitBreaker != null) {
-            for (RedisCommand<K, V, ?> command : result) {
-                if (command instanceof CompleteableCommand) {
-                    @SuppressWarnings("unchecked")
-                    CompleteableCommand<Object> completeable = (CompleteableCommand<Object>) command;
-                    completeable.onComplete((output, error) -> {
-                        if (error != null) {
-                            circuitBreaker.recordFailure(error);
-                        } else {
-                            circuitBreaker.recordSuccess();
-                        }
-                    });
-                }
+            try {
+                target.write(queuedCommand);
+            } catch (RedisException e) {
+                queuedCommand.completeExceptionally(e);
             }
         }
-
-        return result;
-    }
-
-    @Override
-    public List<RedisCommand<?, ?, ?>> drainCommands() {
-        return super.drainCommands();
     }
 
 }

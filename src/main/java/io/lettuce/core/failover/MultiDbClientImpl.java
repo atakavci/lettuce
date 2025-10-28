@@ -76,12 +76,12 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
             StatefulRedisConnectionImpl<K, V> connection = (StatefulRedisConnectionImpl<K, V>) connect(codec, uri);
             // TODO: 1 / getChannelCount() is a hack. Just introduce the weight parameter properly.
             RedisDatabase<StatefulRedisConnectionImpl<K, V>> database = new RedisDatabase<>(uri, 1 / getChannelCount(),
-                    connection, getCommandQueue(connection));
+                    connection, getDatabaseEndpoint(connection));
 
             // Set circuit breaker on the endpoint
-            ManagedCommandQueue commandQueue = database.getCommandQueue();
-            if (commandQueue instanceof DatabaseEndpoint) {
-                ((DatabaseEndpoint) commandQueue).setCircuitBreaker(database.getCircuitBreaker());
+            DatabaseEndpoint databaseEndpoint = database.getDatabaseEndpoint();
+            if (databaseEndpoint != null) {
+                databaseEndpoint.setCircuitBreaker(database.getCircuitBreaker());
             }
 
             databases.put(uri, database);
@@ -116,12 +116,12 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
         for (RedisURI uri : endpoints) {
             StatefulRedisPubSubConnection<K, V> connection = connectPubSub(codec, uri);
             RedisDatabase<StatefulRedisPubSubConnection<K, V>> database = new RedisDatabase<>(uri, 1 / getChannelCount(),
-                    connection, getCommandQueue(connection));
+                    connection, getDatabaseEndpoint(connection));
 
             // Set circuit breaker on the endpoint
-            ManagedCommandQueue commandQueue = database.getCommandQueue();
-            if (commandQueue instanceof DatabasePubSubEndpoint) {
-                ((DatabasePubSubEndpoint<?, ?>) commandQueue).setCircuitBreaker(database.getCircuitBreaker());
+            DatabaseEndpoint databaseEndpoint = database.getDatabaseEndpoint();
+            if (databaseEndpoint != null) {
+                databaseEndpoint.setCircuitBreaker(database.getCircuitBreaker());
             }
 
             databases.put(uri, database);
@@ -131,12 +131,12 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
                 getOptions().getJsonParser());
     }
 
-    private ManagedCommandQueue getCommandQueue(StatefulRedisConnection<?, ?> connection) {
+    private DatabaseEndpoint getDatabaseEndpoint(StatefulRedisConnection<?, ?> connection) {
         RedisChannelWriter writer = ((StatefulRedisConnectionImpl<?, ?>) connection).getChannelWriter();
         if (writer instanceof Delegating) {
             writer = (RedisChannelWriter) ((Delegating<?>) writer).unwrap();
         }
-        return (ManagedCommandQueue) writer;
+        return (DatabaseEndpoint) writer;
     }
 
     // @Override
@@ -192,12 +192,12 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
 
     @Override
     protected DefaultEndpoint createEndpoint() {
-        return new DatabaseEndpoint(getOptions(), getResources());
+        return new DatabaseEndpointImpl(getOptions(), getResources());
     }
 
     @Override
     protected <K, V> PubSubEndpoint<K, V> createPubSubEndpoint() {
-        return new DatabasePubSubEndpoint<>(getOptions(), getResources());
+        return new DatabasePubSubEndpointImpl<>(getOptions(), getResources());
     }
 
 }
