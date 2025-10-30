@@ -1,69 +1,39 @@
 package io.lettuce.core.failover;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 /**
- * Metrics for circuit breaker tracking successes and failures. Thread-safe using atomic counters.
+ * Interface for circuit breaker metrics tracking successes and failures within a time-based sliding window. Thread-safe and
+ * lock-free using atomic operations.
+ *
+ * <p>
+ * This interface defines the contract for tracking metrics over a configurable time period. Old data outside the window is
+ * automatically expired and cleaned up.
+ * </p>
  *
  * @author Augment
  */
-public class CircuitBreakerMetrics {
-
-    private final AtomicLong successCount = new AtomicLong();
-
-    private final AtomicLong failureCount = new AtomicLong();
+public interface CircuitBreakerMetrics {
 
     /**
-     * Create metrics instance.
+     * Record a successful command execution. Lock-free operation.
      */
-    public CircuitBreakerMetrics() {
-    }
+    void recordSuccess();
 
     /**
-     * Record a successful command execution.
+     * Record a failed command execution. Lock-free operation.
      */
-    public void recordSuccess() {
-        successCount.incrementAndGet();
-    }
+    void recordFailure();
 
     /**
-     * Record a failed command execution.
+     * Get a snapshot of the current metrics within the time window. Use the snapshot to access success count, failure count,
+     * total count, and failure rate.
      *
-     * @param error the error that occurred
+     * @return an immutable snapshot of current metrics
      */
-    public void recordFailure(Throwable error) {
-        failureCount.incrementAndGet();
-    }
-
-    /**
-     * Get the total number of successful commands.
-     *
-     * @return success count
-     */
-    public long getSuccessCount() {
-        return successCount.get();
-    }
-
-    /**
-     * Get the total number of failed commands.
-     *
-     * @return failure count
-     */
-    public long getFailureCount() {
-        return failureCount.get();
-    }
+    MetricsSnapshot getSnapshot();
 
     /**
      * Reset all metrics to zero.
      */
-    public void reset() {
-        successCount.set(0);
-        failureCount.set(0);
-    }
-
-    @Override
-    public String toString() {
-        return "CircuitBreakerMetrics{" + "successes=" + successCount.get() + ", failures=" + failureCount.get() + '}';
-    }
+    void reset();
 
 }

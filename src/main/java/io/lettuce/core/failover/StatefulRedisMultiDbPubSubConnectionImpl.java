@@ -13,6 +13,7 @@ import io.lettuce.core.RedisURI;
 import io.lettuce.core.codec.RedisCodec;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbPubSubConnection;
 import io.lettuce.core.json.JsonParser;
+import io.lettuce.core.pubsub.PubSubEndpoint;
 import io.lettuce.core.pubsub.RedisPubSubAsyncCommandsImpl;
 import io.lettuce.core.pubsub.RedisPubSubListener;
 import io.lettuce.core.pubsub.RedisPubSubReactiveCommandsImpl;
@@ -90,10 +91,11 @@ public class StatefulRedisMultiDbPubSubConnectionImpl<K, V>
         moveSubscriptions(fromDb, current);
     }
 
+    @SuppressWarnings("unchecked")
     public void moveSubscriptions(RedisDatabase<StatefulRedisPubSubConnection<K, V>> fromDb,
             RedisDatabase<StatefulRedisPubSubConnection<K, V>> toDb) {
 
-        DatabasePubSubEndpointImpl<K, V> fromEndpoint = (DatabasePubSubEndpointImpl<K, V>) fromDb.getDatabaseEndpoint();
+        PubSubEndpoint<K, V> fromEndpoint = (PubSubEndpoint<K, V>) fromDb.getDatabaseEndpoint();
         StatefulRedisPubSubConnection<K, V> fromConn = (StatefulRedisPubSubConnection<K, V>) fromDb.getConnection();
 
         if (fromEndpoint.hasChannelSubscriptions()) {

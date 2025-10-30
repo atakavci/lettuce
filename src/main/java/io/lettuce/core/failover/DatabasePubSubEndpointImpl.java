@@ -51,11 +51,12 @@ public class DatabasePubSubEndpointImpl<K, V> extends PubSubEndpoint<K, V> imple
         if (circuitBreaker != null && result instanceof CompleteableCommand) {
             @SuppressWarnings("unchecked")
             CompleteableCommand<T> completeable = (CompleteableCommand<T>) result;
+            CircuitBreakerMetrics metrics = circuitBreaker.getMetrics();
             completeable.onComplete((output, error) -> {
                 if (error != null) {
-                    circuitBreaker.recordFailure(error);
+                    metrics.recordFailure();
                 } else {
-                    circuitBreaker.recordSuccess();
+                    metrics.recordSuccess();
                 }
             });
         }
@@ -70,15 +71,16 @@ public class DatabasePubSubEndpointImpl<K, V> extends PubSubEndpoint<K, V> imple
 
         // Attach completion callbacks to track success/failure for each command
         if (circuitBreaker != null) {
+            CircuitBreakerMetrics metrics = circuitBreaker.getMetrics();
             for (RedisCommand<K1, V1, ?> command : result) {
                 if (command instanceof CompleteableCommand) {
                     @SuppressWarnings("unchecked")
                     CompleteableCommand<Object> completeable = (CompleteableCommand<Object>) command;
                     completeable.onComplete((output, error) -> {
                         if (error != null) {
-                            circuitBreaker.recordFailure(error);
+                            metrics.recordFailure();
                         } else {
-                            circuitBreaker.recordSuccess();
+                            metrics.recordSuccess();
                         }
                     });
                 }
