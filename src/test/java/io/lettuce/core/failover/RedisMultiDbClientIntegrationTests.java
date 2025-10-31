@@ -2,9 +2,7 @@ package io.lettuce.core.failover;
 
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisChannelHandler;
-import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisConnectionStateListener;
-import io.lettuce.core.RedisURI;
 import io.lettuce.core.TestSupport;
 import io.lettuce.core.TimeoutOptions;
 import io.lettuce.core.api.StatefulRedisConnection;
@@ -20,7 +18,6 @@ import io.lettuce.test.TestFutures;
 import io.lettuce.test.Wait;
 import io.lettuce.test.resource.FastShutdown;
 import io.lettuce.test.resource.TestClientResources;
-import io.lettuce.test.settings.TestSettings;
 import io.netty.util.concurrent.EventExecutorGroup;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -59,7 +56,6 @@ class RedisMultiDbClientIntegrationTests extends TestSupport {
         assertThat(listener.onDisconnected).isNull();
         assertThat(listener.onException).isNull();
 
-        RedisClient cl = RedisClient.create();
         StatefulRedisConnection<String, String> connection = client.connect();
 
         Wait.untilTrue(() -> listener.onConnected != null).waitOrTimeout();

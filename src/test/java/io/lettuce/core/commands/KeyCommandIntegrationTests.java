@@ -146,7 +146,6 @@ public class KeyCommandIntegrationTests extends TestSupport {
 
     @Test
     void expire() {
-        // test it here
         assertThat(redis.expire(key, 10)).isFalse();
         redis.set(key, value);
         assertThat(redis.expire(key, 10)).isTrue();

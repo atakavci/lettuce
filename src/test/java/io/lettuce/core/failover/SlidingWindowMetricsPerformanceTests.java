@@ -77,7 +77,6 @@ class SlidingWindowMetricsPerformanceTests {
         long startTime = System.nanoTime();
 
         for (int i = 0; i < threadCount; i++) {
-            final int threadId = i;
             threads[i] = new Thread(() -> {
                 for (int j = 0; j < operationsPerThread; j++) {
                     if (j % 3 == 0) {
