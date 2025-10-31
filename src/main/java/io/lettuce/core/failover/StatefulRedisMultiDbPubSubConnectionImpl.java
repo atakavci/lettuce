@@ -32,8 +32,9 @@ public class StatefulRedisMultiDbPubSubConnectionImpl<K, V>
 
     public StatefulRedisMultiDbPubSubConnectionImpl(
             Map<RedisURI, RedisDatabase<StatefulRedisPubSubConnection<K, V>>> connections, ClientResources resources,
-            RedisCodec<K, V> codec, Supplier<JsonParser> parser) {
-        super(connections, resources, codec, parser);
+            RedisCodec<K, V> codec, Supplier<JsonParser> parser,
+            DatabaseConnectionFactory<StatefulRedisPubSubConnection<K, V>, K, V> connectionFactory) {
+        super(connections, resources, codec, parser, connectionFactory);
     }
 
     @Override

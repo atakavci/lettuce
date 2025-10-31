@@ -2,6 +2,7 @@ package io.lettuce.core.failover.api;
 
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.failover.CircuitBreaker;
+import io.lettuce.core.failover.DatabaseConfig;
 
 public interface BaseRedisMultiDb {
 
@@ -19,5 +20,31 @@ public interface BaseRedisMultiDb {
      * @throws IllegalArgumentException if the endpoint is not known
      */
     CircuitBreaker getCircuitBreaker(RedisURI endpoint);
+
+    /**
+     * Add a new database to the multi-database connection.
+     *
+     * @param redisURI the Redis URI for the new database, must not be {@code null}
+     * @param weight the weight for load balancing, must be greater than 0
+     * @throws IllegalArgumentException if the database already exists or parameters are invalid
+     */
+    void addDatabase(RedisURI redisURI, float weight);
+
+    /**
+     * Add a new database to the multi-database connection.
+     *
+     * @param databaseConfig the database configuration, must not be {@code null}
+     * @throws IllegalArgumentException if the database already exists or configuration is invalid
+     */
+    void addDatabase(DatabaseConfig databaseConfig);
+
+    /**
+     * Remove a database from the multi-database connection.
+     *
+     * @param redisURI the Redis URI of the database to remove, must not be {@code null}
+     * @throws IllegalArgumentException if the database does not exist
+     * @throws UnsupportedOperationException if attempting to remove the currently active database
+     */
+    void removeDatabase(RedisURI redisURI);
 
 }

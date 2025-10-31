@@ -1,13 +1,9 @@
 package io.lettuce.core.failover;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import io.lettuce.core.CommandListenerWriter;
-import io.lettuce.core.ConnectionFuture;
 import io.lettuce.core.Delegating;
 import io.lettuce.core.RedisChannelWriter;
 import io.lettuce.core.RedisClient;
@@ -18,12 +14,9 @@ import io.lettuce.core.codec.RedisCodec;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbPubSubConnection;
 import io.lettuce.core.internal.LettuceAssert;
-import io.lettuce.core.protocol.CommandExpiryWriter;
-import io.lettuce.core.protocol.CommandHandler;
 import io.lettuce.core.protocol.DefaultEndpoint;
 import io.lettuce.core.pubsub.PubSubEndpoint;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
-import io.lettuce.core.pubsub.StatefulRedisPubSubConnectionImpl;
 import io.lettuce.core.resource.ClientResources;
 
 /**
@@ -34,17 +27,21 @@ import io.lettuce.core.resource.ClientResources;
  */
 class MultiDbClientImpl extends RedisClient implements MultiDbClient {
 
-    private final List<RedisURI> endpoints;
+    private final Map<RedisURI, DatabaseConfig> databaseConfigs;
 
-    // private final RedisClient delegate;
-
-    MultiDbClientImpl(ClientResources clientResources, List<RedisURI> endpoints) {
+    MultiDbClientImpl(ClientResources clientResources, Collection<DatabaseConfig> databaseConfigs) {
         super(clientResources, new RedisURI());
 
-        // delegate = RedisClient.create(this.getResources());
-
-        this.endpoints = (endpoints == null) ? new ArrayList<>() : new ArrayList<>(endpoints);
-        this.endpoints.forEach(uri -> LettuceAssert.notNull(uri, "RedisURI must not be null"));
+        if (databaseConfigs == null || databaseConfigs.isEmpty()) {
+            this.databaseConfigs = new ConcurrentHashMap<>();
+        } else {
+            this.databaseConfigs = new ConcurrentHashMap<>(databaseConfigs.size());
+            for (DatabaseConfig config : databaseConfigs) {
+                LettuceAssert.notNull(config, "DatabaseConfig must not be null");
+                LettuceAssert.notNull(config.getRedisURI(), "RedisURI must not be null");
+                this.databaseConfigs.put(config.getRedisURI(), config);
+            }
+        }
     }
 
     /**
@@ -56,11 +53,10 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
         return connect(newStringStringCodec());
     }
 
-    // public StatefulRedisMultiDbConnection<String, String> connect(RedisURI redisURI) {
-    // endpoints.clear();
-    // endpoints.add(redisURI);
-    // return connect(newStringStringCodec());
-    // }
+    @Override
+    public Collection<RedisURI> getRedisURIs() {
+        return databaseConfigs.keySet();
+    }
 
     public <K, V> StatefulRedisMultiDbConnection<K, V> connect(RedisCodec<K, V> codec) {
 
@@ -68,27 +64,33 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
             throw new IllegalArgumentException("codec must not be null");
         }
 
-        Map<RedisURI, RedisDatabase<StatefulRedisConnectionImpl<K, V>>> databases = new ConcurrentHashMap<>(endpoints.size());
-        for (RedisURI uri : endpoints) {
+        Map<RedisURI, RedisDatabase<StatefulRedisConnection<K, V>>> databases = new ConcurrentHashMap<>(databaseConfigs.size());
+        for (Map.Entry<RedisURI, DatabaseConfig> entry : databaseConfigs.entrySet()) {
+            RedisURI uri = entry.getKey();
+            DatabaseConfig config = entry.getValue();
+
             // HACK: looks like repeating the implementation all around 'RedisClient.connect' is an overkill.
             // connections.put(uri, connect(codec, uri));
             // Instead we will use it from delegate
-            StatefulRedisConnectionImpl<K, V> connection = (StatefulRedisConnectionImpl<K, V>) connect(codec, uri);
-            // TODO: 1 / getChannelCount() is a hack. Just introduce the weight parameter properly.
-            RedisDatabase<StatefulRedisConnectionImpl<K, V>> database = new RedisDatabase<>(uri, 1 / getChannelCount(),
-                    connection, getDatabaseEndpoint(connection));
-
-            // Set circuit breaker on the endpoint
-            DatabaseEndpoint databaseEndpoint = database.getDatabaseEndpoint();
-            if (databaseEndpoint != null) {
-                databaseEndpoint.setCircuitBreaker(database.getCircuitBreaker());
-            }
+            RedisDatabase<StatefulRedisConnection<K, V>> database = createRedisDatabase(config, codec);
 
             databases.put(uri, database);
         }
 
-        return new StatefulRedisMultiDbConnectionImpl<StatefulRedisConnectionImpl<K, V>, K, V>(databases, getResources(), codec,
-                getOptions().getJsonParser());
+        // Provide a connection factory for dynamic database addition
+        return new StatefulRedisMultiDbConnectionImpl<StatefulRedisConnection<K, V>, K, V>(databases, getResources(), codec,
+                getOptions().getJsonParser(), this::createRedisDatabase);
+    }
+
+    private <K, V> RedisDatabase<StatefulRedisConnection<K, V>> createRedisDatabase(DatabaseConfig config,
+            RedisCodec<K, V> codec) {
+        RedisURI uri = config.getRedisURI();
+        StatefulRedisConnection<K, V> connection = connect(codec, uri);
+        DatabaseEndpoint databaseEndpoint = extractDatabaseEndpoint(connection);
+        RedisDatabase<StatefulRedisConnection<K, V>> database = new RedisDatabase<>(uri, config.getWeight(), connection,
+                databaseEndpoint);
+
+        return database;
     }
 
     /**
@@ -100,95 +102,44 @@ class MultiDbClientImpl extends RedisClient implements MultiDbClient {
         return connectPubSub(newStringStringCodec());
     }
 
-    // public StatefulRedisMultiDbPubSubConnection<String, String> connectPubSub(RedisURI redisURI) {
-    // endpoints.clear();
-    // endpoints.add(redisURI);
-    // return connectPubSub(newStringStringCodec());
-    // }
-
     public <K, V> StatefulRedisMultiDbPubSubConnection<K, V> connectPubSub(RedisCodec<K, V> codec) {
 
         if (codec == null) {
             throw new IllegalArgumentException("codec must not be null");
         }
 
-        Map<RedisURI, RedisDatabase<StatefulRedisPubSubConnection<K, V>>> databases = new ConcurrentHashMap<>(endpoints.size());
-        for (RedisURI uri : endpoints) {
-            StatefulRedisPubSubConnection<K, V> connection = connectPubSub(codec, uri);
-            RedisDatabase<StatefulRedisPubSubConnection<K, V>> database = new RedisDatabase<>(uri, 1 / getChannelCount(),
-                    connection, getDatabaseEndpoint(connection));
+        Map<RedisURI, RedisDatabase<StatefulRedisPubSubConnection<K, V>>> databases = new ConcurrentHashMap<>(
+                databaseConfigs.size());
+        for (Map.Entry<RedisURI, DatabaseConfig> entry : databaseConfigs.entrySet()) {
+            RedisURI uri = entry.getKey();
+            DatabaseConfig config = entry.getValue();
 
-            // Set circuit breaker on the endpoint
-            DatabaseEndpoint databaseEndpoint = database.getDatabaseEndpoint();
-            if (databaseEndpoint != null) {
-                databaseEndpoint.setCircuitBreaker(database.getCircuitBreaker());
-            }
-
+            RedisDatabase<StatefulRedisPubSubConnection<K, V>> database = createRedisDatabaseWithPubSub(config, codec);
             databases.put(uri, database);
         }
 
+        // Provide a connection factory for dynamic database addition
         return new StatefulRedisMultiDbPubSubConnectionImpl<K, V>(databases, getResources(), codec,
-                getOptions().getJsonParser());
+                getOptions().getJsonParser(), this::createRedisDatabaseWithPubSub);
     }
 
-    private DatabaseEndpoint getDatabaseEndpoint(StatefulRedisConnection<?, ?> connection) {
+    private <K, V> RedisDatabase<StatefulRedisPubSubConnection<K, V>> createRedisDatabaseWithPubSub(DatabaseConfig config,
+            RedisCodec<K, V> codec) {
+        RedisURI uri = config.getRedisURI();
+        StatefulRedisPubSubConnection<K, V> connection = connectPubSub(codec, uri);
+        DatabaseEndpoint databaseEndpoint = extractDatabaseEndpoint(connection);
+        RedisDatabase<StatefulRedisPubSubConnection<K, V>> database = new RedisDatabase<>(uri, config.getWeight(), connection,
+                databaseEndpoint);
+        return database;
+    }
+
+    private DatabaseEndpoint extractDatabaseEndpoint(StatefulRedisConnection<?, ?> connection) {
         RedisChannelWriter writer = ((StatefulRedisConnectionImpl<?, ?>) connection).getChannelWriter();
         if (writer instanceof Delegating) {
             writer = (RedisChannelWriter) ((Delegating<?>) writer).unwrap();
         }
         return (DatabaseEndpoint) writer;
     }
-
-    // @Override
-    // public void addListener(RedisConnectionStateListener listener) {
-    // delegate.addListener(listener);
-    // }
-
-    // @Override
-    // public void removeListener(RedisConnectionStateListener listener) {
-    // delegate.removeListener(listener);
-    // }
-
-    // @Override
-    // public void addListener(CommandListener listener) {
-    // delegate.addListener(listener);
-    // }
-
-    // @Override
-    // public void removeListener(CommandListener listener) {
-    // delegate.removeListener(listener);
-    // }
-
-    // public void shutdown() {
-    // delegate.shutdown(0, 2, TimeUnit.SECONDS);
-    // super.shutdown(0, 2, TimeUnit.SECONDS);
-    // }
-
-    // @Override
-    // public void close() {
-    // delegate.close();
-    // super.close();
-    // }
-
-    // public void shutdown(Duration quietPeriod, Duration timeout) {
-    // delegate.shutdown(quietPeriod.toNanos(), timeout.toNanos(), TimeUnit.NANOSECONDS);
-    // super.shutdown(quietPeriod.toNanos(), timeout.toNanos(), TimeUnit.NANOSECONDS);
-    // }
-
-    // @Override
-    // public void shutdown(long quietPeriod, long timeout, TimeUnit timeUnit) {
-    // delegate.shutdown(quietPeriod, timeout, timeUnit);
-    // super.shutdown(quietPeriod, timeout, timeUnit);
-    // }
-
-    // public CompletableFuture<Void> shutdownAsync() {
-    // return delegate.shutdownAsync().thenCompose(v -> super.shutdownAsync());
-    // }
-
-    // public CompletableFuture<Void> shutdownAsync(long quietPeriod, long timeout, TimeUnit timeUnit) {
-    // return delegate.shutdownAsync(quietPeriod, timeout, timeUnit)
-    // .thenCompose(v -> super.shutdownAsync(quietPeriod, timeout, timeUnit));
-    // }
 
     @Override
     protected DefaultEndpoint createEndpoint() {

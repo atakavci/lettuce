@@ -26,6 +26,7 @@ public class RedisDatabase<C extends StatefulRedisConnection<?, ?>> {
         this.connection = connection;
         this.databaseEndpoint = databaseEndpoint;
         this.circuitBreaker = new CircuitBreaker();
+        databaseEndpoint.setCircuitBreaker(circuitBreaker);
     }
 
     public float getWeight() {

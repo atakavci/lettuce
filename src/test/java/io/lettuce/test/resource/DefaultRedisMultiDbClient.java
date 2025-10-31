@@ -1,11 +1,7 @@
 package io.lettuce.test.resource;
 
-import java.util.List;
-
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.RedisURI;
 import io.lettuce.core.failover.MultiDbClient;
-import io.lettuce.test.settings.TestSettings;
+import io.lettuce.core.failover.MultiDbTestSupport;
 
 /**
  * @author Mark Paluch
@@ -18,7 +14,7 @@ public class DefaultRedisMultiDbClient {
     private final MultiDbClient redisClient;
 
     private DefaultRedisMultiDbClient() {
-        redisClient = MultiDbClient.create(getEndpoints());
+        redisClient = MultiDbClient.create(MultiDbTestSupport.DBs);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> FastShutdown.shutdown(redisClient)));
     }
 
@@ -29,11 +25,6 @@ public class DefaultRedisMultiDbClient {
      */
     public static MultiDbClient get() {
         return instance.redisClient;
-    }
-
-    private List<RedisURI> getEndpoints() {
-        return java.util.Arrays.asList(RedisURI.create(TestSettings.host(), TestSettings.port()),
-                RedisURI.create(TestSettings.host(), TestSettings.port(1)));
     }
 
 }

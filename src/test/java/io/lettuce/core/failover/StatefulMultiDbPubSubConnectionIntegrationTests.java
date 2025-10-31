@@ -24,7 +24,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.StreamSupport;
@@ -37,14 +36,10 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
-import io.lettuce.core.TestSupport;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbPubSubConnection;
 import io.lettuce.core.internal.LettuceFactories;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
-import io.lettuce.test.resource.TestClientResources;
-import io.lettuce.test.settings.TestSettings;
 import io.lettuce.test.LettuceExtension;
 
 /**
@@ -54,43 +49,30 @@ import io.lettuce.test.LettuceExtension;
  */
 @ExtendWith(LettuceExtension.class)
 @Tag(INTEGRATION_TEST)
-class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
-
-    private final MultiDbClient client;
-
-    private final RedisClient client1;
-
-    private final RedisClient client2;
-
-    private List<RedisURI> getEndpoints() {
-        return java.util.Arrays.asList(RedisURI.create(TestSettings.host(), TestSettings.port()),
-                RedisURI.create(TestSettings.host(), TestSettings.port(1)));
-    }
+class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport {
 
     @Inject
     StatefulMultiDbPubSubConnectionIntegrationTests(MultiDbClient client) {
-        this.client = client;
-        this.client1 = RedisClient.create(getEndpoints().get(0));
-        this.client2 = RedisClient.create(getEndpoints().get(1));
+        super(client);
     }
 
     @BeforeEach
     void setUp() {
-        client1.connect().sync().flushall();
-        client2.connect().sync().flushall();
+        directClient1.connect().sync().flushall();
+        directClient2.connect().sync().flushall();
     }
 
     @After
     void tearDown() {
-        client1.shutdown();
-        client2.shutdown();
+        directClient1.shutdown();
+        directClient2.shutdown();
     }
 
     // ============ Basic PubSub Connection Tests ============
 
     @Test
     void shouldConnectPubSubToMultipleEndpoints() {
-        StatefulRedisMultiDbPubSubConnection<String, String> connection = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> connection = multiDbClient.connectPubSub();
         assertNotNull(connection);
         assertThat(connection.getEndpoints()).isNotNull();
         connection.close();
@@ -98,7 +80,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldGetCurrentEndpointForPubSub() {
-        StatefulRedisMultiDbPubSubConnection<String, String> connection = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> connection = multiDbClient.connectPubSub();
         RedisURI currentEndpoint = connection.getCurrentEndpoint();
         assertNotNull(currentEndpoint);
         assertThat(currentEndpoint).isIn(connection.getEndpoints());
@@ -109,7 +91,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldSubscribeToChannel() throws Exception {
-        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = multiDbClient.connectPubSub();
         BlockingQueue<String> channels = LettuceFactories.newBlockingQueue();
 
         pubsub.addListener(new RedisPubSubAdapter<String, String>() {
@@ -129,7 +111,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldPublishAndReceiveMessage() throws Exception {
-        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = multiDbClient.connectPubSub();
         BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
 
         pubsub.addListener(new RedisPubSubAdapter<String, String>() {
@@ -144,7 +126,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
         pubsub.sync().subscribe("msgchannel");
 
         // Publish message from another connection
-        StatefulRedisMultiDbPubSubConnection<String, String> publisher = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> publisher = multiDbClient.connectPubSub();
         publisher.sync().publish("msgchannel", "Hello World");
 
         String message = messages.take();
@@ -158,7 +140,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldMaintainSubscriptionAfterDatabaseSwitch() throws Exception {
-        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = multiDbClient.connectPubSub();
         BlockingQueue<String> channels = LettuceFactories.newBlockingQueue();
 
         pubsub.addListener(new RedisPubSubAdapter<String, String>() {
@@ -188,7 +170,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldReceiveMessagesAfterDatabaseSwitch() throws Exception {
-        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = multiDbClient.connectPubSub();
         BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
 
         pubsub.addListener(new RedisPubSubAdapter<String, String>() {
@@ -209,7 +191,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
         pubsub.switchToDatabase(other);
 
         // Publish from another connection on second database
-        StatefulRedisMultiDbPubSubConnection<String, String> publisher = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> publisher = multiDbClient.connectPubSub();
         publisher.switchToDatabase(other);
         publisher.sync().publish("switchchannel", "Message after switch");
 
@@ -222,7 +204,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldHandleMultipleDatabaseSwitchesWithPubSub() throws Exception {
-        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = multiDbClient.connectPubSub();
         BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
 
         pubsub.addListener(new RedisPubSubAdapter<String, String>() {
@@ -249,7 +231,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
         pubsub.switchToDatabase(firstDb);
 
         // Publish on first database
-        StatefulRedisMultiDbPubSubConnection<String, String> publisher = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> publisher = multiDbClient.connectPubSub();
         publisher.sync().publish("multichannel", "Message from DB1");
 
         String message = messages.take();
@@ -261,7 +243,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldHandleListenerAdditionAfterSwitch() throws Exception {
-        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = multiDbClient.connectPubSub();
         BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
 
         // Subscribe on first database
@@ -286,7 +268,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
         pubsub.sync().subscribe("listenertest");
 
         // Publish on second database
-        StatefulRedisMultiDbPubSubConnection<String, String> publisher = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> publisher = multiDbClient.connectPubSub();
         publisher.switchToDatabase(other);
         publisher.sync().publish("listenertest", "Listener test message");
 
@@ -301,7 +283,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldNotReceiveMessagesFromOldEndpointAfterSwitch() throws Exception {
-        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = multiDbClient.connectPubSub();
         BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
 
         pubsub.addListener(new RedisPubSubAdapter<String, String>() {
@@ -325,11 +307,11 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
         pubsub.switchToDatabase(secondDb);
 
         // Publish on the OLD endpoint (firstDb) - should NOT be received
-        StatefulRedisMultiDbPubSubConnection<String, String> oldPublisher = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> oldPublisher = multiDbClient.connectPubSub();
         oldPublisher.sync().publish("isolationtest", "Message from old endpoint");
 
         // Publish on the NEW endpoint (secondDb) - should be received
-        StatefulRedisMultiDbPubSubConnection<String, String> newPublisher = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> newPublisher = multiDbClient.connectPubSub();
         newPublisher.switchToDatabase(secondDb);
         newPublisher.sync().publish("isolationtest", "Message from new endpoint");
 
@@ -348,7 +330,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldUnsubscribeChannelsFromOldEndpointAfterSwitch() throws Exception {
-        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> pubsub = multiDbClient.connectPubSub();
         BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
 
         pubsub.addListener(new RedisPubSubAdapter<String, String>() {
@@ -379,7 +361,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
 
         // Verify that the old endpoint no longer receives messages
         // by publishing on the old endpoint and verifying no message is received
-        StatefulRedisMultiDbPubSubConnection<String, String> oldPublisher = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> oldPublisher = multiDbClient.connectPubSub();
         oldPublisher.sync().publish("unsubtest", "Message from old endpoint after unsubscribe");
 
         // Verify no message is received from old endpoint
@@ -391,7 +373,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends TestSupport {
         pubsub.sync().subscribe("unsubtest");
 
         // Publish on the new endpoint
-        StatefulRedisMultiDbPubSubConnection<String, String> newPublisher = client.connectPubSub();
+        StatefulRedisMultiDbPubSubConnection<String, String> newPublisher = multiDbClient.connectPubSub();
         newPublisher.switchToDatabase(secondDb);
         newPublisher.sync().publish("unsubtest", "Message from new endpoint");
 

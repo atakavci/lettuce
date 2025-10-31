@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 
 import java.io.Closeable;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -53,7 +52,7 @@ class RedisMultDbClientUnitTests {
         when(asyncCloseable.closeAsync()).thenReturn(completableFuture);
 
         MultiDbClient redisClient = MultiDbClient.create(clientResources,
-                java.util.Arrays.asList(RedisURI.create("redis://foo"), RedisURI.create("redis://bar")));
+                MultiDbTestSupport.getDatabaseConfigs(RedisURI.create("redis://foo"), RedisURI.create("redis://bar")));
 
         Field field = AbstractRedisClient.class.getDeclaredField("sharedResources");
         field.setAccessible(true);
@@ -78,7 +77,7 @@ class RedisMultDbClientUnitTests {
         when(asyncCloseable.closeAsync()).thenReturn(completableFuture);
 
         MultiDbClient redisClient = MultiDbClient.create(clientResources,
-                java.util.Arrays.asList(RedisURI.create("redis://foo"), RedisURI.create("redis://bar")));
+                MultiDbTestSupport.getDatabaseConfigs(RedisURI.create("redis://foo"), RedisURI.create("redis://bar")));
 
         Field field = AbstractRedisClient.class.getDeclaredField("sharedResources");
         field.setAccessible(true);

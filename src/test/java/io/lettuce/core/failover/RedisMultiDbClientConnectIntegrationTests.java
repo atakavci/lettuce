@@ -20,43 +20,26 @@
 package io.lettuce.core.failover;
 
 import static io.lettuce.TestTags.INTEGRATION_TEST;
-import static io.lettuce.core.RedisURI.Builder.redis;
 import static io.lettuce.core.codec.StringCodec.UTF8;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.StreamSupport;
 
 import javax.inject.Inject;
 
-import io.lettuce.core.protocol.ProtocolVersion;
-
 import org.junit.After;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisURI;
-import io.lettuce.core.TestSupport;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
-import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
-import io.lettuce.core.resource.ClientResources;
-import io.lettuce.core.sentinel.api.StatefulRedisSentinelConnection;
 import io.lettuce.test.TestFutures;
-import io.lettuce.test.resource.TestClientResources;
-import io.lettuce.test.settings.TestSettings;
 import io.lettuce.test.LettuceExtension;
 
 /**
@@ -66,38 +49,23 @@ import io.lettuce.test.LettuceExtension;
  */
 @ExtendWith(LettuceExtension.class)
 @Tag(INTEGRATION_TEST)
-class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
-
-    private final MultiDbClient client;
-
-    private final ClientResources clientResources = TestClientResources.get();
-
-    private final RedisClient client1;
-
-    private final RedisClient client2;
-
-    private List<RedisURI> getEndpoints() {
-        return java.util.Arrays.asList(RedisURI.create(TestSettings.host(), TestSettings.port()),
-                RedisURI.create(TestSettings.host(), TestSettings.port(1)));
-    }
+class RedisMultiDbClientConnectIntegrationTests extends MultiDbTestSupport {
 
     @Inject
     RedisMultiDbClientConnectIntegrationTests(MultiDbClient client) {
-        this.client = client;
-        this.client1 = RedisClient.create(getEndpoints().get(0));
-        this.client2 = RedisClient.create(getEndpoints().get(1));
+        super(client);
     }
 
     @BeforeEach
     void setUp() {
-        client1.connect().sync().flushall();
-        client2.connect().sync().flushall();
+        directClient1.connect().sync().flushall();
+        directClient2.connect().sync().flushall();
     }
 
     @After
     void tearDown() {
-        client1.shutdown();
-        client2.shutdown();
+        directClient1.shutdown();
+        directClient2.shutdown();
     }
 
     /*
@@ -106,14 +74,14 @@ class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
     @Test
     void connectClientUri() {
 
-        StatefulRedisConnection<String, String> connection = client.connect();
+        StatefulRedisConnection<String, String> connection = multiDbClient.connect();
         assertThat(connection.getTimeout()).isEqualTo(RedisURI.DEFAULT_TIMEOUT_DURATION);
         connection.close();
     }
 
     @Test
     void connectCodecClientUri() {
-        StatefulRedisConnection<String, String> connection = client.connect(UTF8);
+        StatefulRedisConnection<String, String> connection = multiDbClient.connect(UTF8);
         assertThat(connection.getTimeout()).isEqualTo(RedisURI.DEFAULT_TIMEOUT_DURATION);
         connection.close();
     }
@@ -195,7 +163,7 @@ class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
 
     @Test
     void connectAndRunSimpleCommand() throws InterruptedException, ExecutionException {
-        StatefulRedisConnection<String, String> connection = client.connect();
+        StatefulRedisConnection<String, String> connection = multiDbClient.connect();
         RedisFuture futureSet = connection.async().set("key1", "value1");
         TestFutures.awaitOrTimeout(futureSet);
         RedisFuture<String> futureGet = connection.async().get("key1");
@@ -206,7 +174,7 @@ class RedisMultiDbClientConnectIntegrationTests extends TestSupport {
 
     @Test
     void connectAndRunAndSwitchAndRun() throws InterruptedException, ExecutionException {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         RedisFuture futureSet = connection.async().set("key1", "value1");
         TestFutures.awaitOrTimeout(futureSet);
         RedisFuture<String> futureGet = connection.async().get("key1");

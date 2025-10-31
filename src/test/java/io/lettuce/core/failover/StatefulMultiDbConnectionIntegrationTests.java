@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import java.util.List;
 import java.util.stream.StreamSupport;
 
 import javax.inject.Inject;
@@ -36,14 +35,10 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisURI;
-import io.lettuce.core.TestSupport;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.test.TestFutures;
-import io.lettuce.test.resource.TestClientResources;
-import io.lettuce.test.settings.TestSettings;
 import io.lettuce.test.LettuceExtension;
 
 /**
@@ -53,43 +48,30 @@ import io.lettuce.test.LettuceExtension;
  */
 @ExtendWith(LettuceExtension.class)
 @Tag(INTEGRATION_TEST)
-class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
-
-    private final MultiDbClient client;
-
-    private final RedisClient client1;
-
-    private final RedisClient client2;
-
-    private List<RedisURI> getEndpoints() {
-        return java.util.Arrays.asList(RedisURI.create(TestSettings.host(), TestSettings.port()),
-                RedisURI.create(TestSettings.host(), TestSettings.port(1)));
-    }
+class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
 
     @Inject
     StatefulMultiDbConnectionIntegrationTests(MultiDbClient client) {
-        this.client = client;
-        this.client1 = RedisClient.create(getEndpoints().get(0));
-        this.client2 = RedisClient.create(getEndpoints().get(1));
+        super(client);
     }
 
     @BeforeEach
     void setUp() {
-        client1.connect().sync().flushall();
-        client2.connect().sync().flushall();
+        directClient1.connect().sync().flushall();
+        directClient2.connect().sync().flushall();
     }
 
     @After
-    void tearDown() {
-        client1.shutdown();
-        client2.shutdown();
+    void tearDownAfter() {
+        directClient1.shutdown();
+        directClient2.shutdown();
     }
 
     // ============ Basic Connection Tests ============
 
     @Test
     void shouldConnectToMultipleEndpoints() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         assertNotNull(connection);
         assertThat(connection.getEndpoints()).isNotNull();
         connection.close();
@@ -97,7 +79,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldGetCurrentEndpoint() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         RedisURI currentEndpoint = connection.getCurrentEndpoint();
         assertNotNull(currentEndpoint);
         assertThat(currentEndpoint).isIn(connection.getEndpoints());
@@ -106,7 +88,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldListAllEndpoints() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         Iterable<RedisURI> endpoints = connection.getEndpoints();
         assertThat(endpoints).isNotNull();
         assertThat(StreamSupport.stream(endpoints.spliterator(), false).count()).isGreaterThanOrEqualTo(2);
@@ -117,7 +99,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldSetAndGetValueSync() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         connection.sync().set("testKey", "testValue");
         String value = connection.sync().get("testKey");
         assertEquals("testValue", value);
@@ -126,7 +108,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldDeleteKeySync() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         connection.sync().set("deleteKey", "value");
         Long deleted = connection.sync().del("deleteKey");
         assertEquals(1L, deleted);
@@ -137,7 +119,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldIncrementValueSync() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         connection.sync().set("counter", "10");
         Long result = connection.sync().incr("counter");
         assertEquals(11L, result);
@@ -146,7 +128,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldAppendToStringSync() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         connection.sync().set("mykey", "Hello");
         Long length = connection.sync().append("mykey", " World");
         assertEquals(11L, length);
@@ -159,7 +141,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldSetAndGetValueAsync() throws Exception {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         RedisFuture<String> setFuture = connection.async().set("asyncKey", "asyncValue");
         TestFutures.awaitOrTimeout(setFuture);
         RedisFuture<String> getFuture = connection.async().get("asyncKey");
@@ -170,7 +152,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldDeleteKeyAsync() throws Exception {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         connection.async().set("asyncDeleteKey", "value");
         RedisFuture<Long> deleteFuture = connection.async().del("asyncDeleteKey");
         TestFutures.awaitOrTimeout(deleteFuture);
@@ -180,7 +162,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldIncrementValueAsync() throws Exception {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         connection.async().set("asyncCounter", "5");
         RedisFuture<Long> incrFuture = connection.async().incr("asyncCounter");
         TestFutures.awaitOrTimeout(incrFuture);
@@ -192,7 +174,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldSwitchBetweenDatabases() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
 
         // Set value in first database
         connection.sync().set("switchKey", "value1");
@@ -215,7 +197,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldMaintainDataAfterSwitch() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
 
         // Set value in first database
         connection.sync().set("persistKey", "persistValue");
@@ -237,7 +219,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldSwitchAndExecuteCommandsAsync() throws Exception {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
 
         // Set value in first database
         RedisFuture<String> setFuture1 = connection.async().set("asyncSwitchKey", "asyncValue1");
@@ -262,7 +244,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldHandleMultipleSwitches() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         RedisURI firstDb = connection.getCurrentEndpoint();
         RedisURI secondDb = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
                 .filter(uri -> !uri.equals(firstDb)).findFirst().get();
@@ -291,7 +273,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldPushAndPopFromList() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         connection.sync().rpush("mylist", "a", "b", "c");
         String value = connection.sync().lpop("mylist");
         assertEquals("a", value);
@@ -300,7 +282,7 @@ class StatefulMultiDbConnectionIntegrationTests extends TestSupport {
 
     @Test
     void shouldGetListLength() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         connection.sync().rpush("listlen", "one", "two", "three");
         Long length = connection.sync().llen("listlen");
         assertEquals(3L, length);

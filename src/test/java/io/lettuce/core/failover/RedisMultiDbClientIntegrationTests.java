@@ -46,17 +46,12 @@ class RedisMultiDbClientIntegrationTests extends TestSupport {
 
     private final ClientResources clientResources = TestClientResources.get();
 
-    private List<RedisURI> getEndpoints() {
-        return java.util.Arrays.asList(RedisURI.create(TestSettings.host(), TestSettings.port()),
-                RedisURI.create(TestSettings.host(), TestSettings.port(1)));
-    }
-
     @Test
     void shouldNotifyConnectionListener() {
 
         TestConnectionListener listener = new TestConnectionListener();
 
-        MultiDbClient client = MultiDbClient.create(clientResources, getEndpoints());
+        MultiDbClient client = MultiDbClient.create(clientResources, MultiDbTestSupport.DBs);
 
         client.addListener(listener);
 
@@ -90,7 +85,7 @@ class RedisMultiDbClientIntegrationTests extends TestSupport {
         final TestConnectionListener removedListener = new TestConnectionListener();
         final TestConnectionListener retainedListener = new TestConnectionListener();
 
-        MultiDbClient client = MultiDbClient.create(clientResources, getEndpoints());
+        MultiDbClient client = MultiDbClient.create(clientResources, MultiDbTestSupport.DBs);
         client.addListener(removedListener);
         client.addListener(retainedListener);
         client.removeListener(removedListener);
@@ -141,7 +136,7 @@ class RedisMultiDbClientIntegrationTests extends TestSupport {
 
         TestCommandListener commandListener = new TestCommandListener();
 
-        MultiDbClient client = MultiDbClient.create(clientResources, getEndpoints());
+        MultiDbClient client = MultiDbClient.create(clientResources, MultiDbTestSupport.DBs);
         client.addListener(commandListener);
         ClientOptions options = ClientOptions.builder().timeoutOptions(TimeoutOptions.enabled()).build();
         // HACK : check how to access setOptions
@@ -196,7 +191,7 @@ class RedisMultiDbClientIntegrationTests extends TestSupport {
     void managedClientResources() throws Exception {
 
         // given
-        MultiDbClient redisFailoverClient1 = MultiDbClient.create(getEndpoints());
+        MultiDbClient redisFailoverClient1 = MultiDbClient.create(MultiDbTestSupport.DBs);
         ClientResources clientResources = redisFailoverClient1.getResources();
         Map<Class<? extends EventExecutorGroup>, EventExecutorGroup> eventLoopGroups = getExecutors(clientResources);
         connectAndClose(redisFailoverClient1);
@@ -217,7 +212,7 @@ class RedisMultiDbClientIntegrationTests extends TestSupport {
     }
 
     private MultiDbClient newClient(DefaultClientResources clientResources) {
-        return MultiDbClient.create(clientResources, getEndpoints());
+        return MultiDbClient.create(clientResources, MultiDbTestSupport.DBs);
     }
 
     private Map<Class<? extends EventExecutorGroup>, EventExecutorGroup> getExecutors(ClientResources clientResources)

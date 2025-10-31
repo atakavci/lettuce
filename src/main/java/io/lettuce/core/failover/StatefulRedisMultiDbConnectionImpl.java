@@ -57,16 +57,17 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
 
     private final Set<RedisConnectionStateListener> connectionStateListeners = ConcurrentHashMap.newKeySet();
 
-    // private final ClientResources clientResources;
+    private final DatabaseConnectionFactory<C, K, V> connectionFactory;
 
     public StatefulRedisMultiDbConnectionImpl(Map<RedisURI, RedisDatabase<C>> connections, ClientResources resources,
-            RedisCodec<K, V> codec, Supplier<JsonParser> parser) {
+            RedisCodec<K, V> codec, Supplier<JsonParser> parser, DatabaseConnectionFactory<C, K, V> connectionFactory) {
         if (connections == null || connections.isEmpty()) {
             throw new IllegalArgumentException("connections must not be empty");
         }
         this.databases = new ConcurrentHashMap<>(connections);
         this.codec = codec;
         this.parser = parser;
+        this.connectionFactory = connectionFactory;
         this.current = connections.values().stream().max(Comparator.comparingDouble(RedisDatabase::getWeight)).get();
 
         this.async = newRedisAsyncCommandsImpl();
@@ -244,6 +245,55 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
             throw new IllegalArgumentException("Unknown endpoint: " + endpoint);
         }
         return database.getCircuitBreaker();
+    }
+
+    @Override
+    public void addDatabase(RedisURI redisURI, float weight) {
+        addDatabase(new DatabaseConfig(redisURI, weight));
+    }
+
+    @Override
+    public void addDatabase(DatabaseConfig databaseConfig) {
+        if (databaseConfig == null) {
+            throw new IllegalArgumentException("DatabaseConfig must not be null");
+        }
+
+        if (connectionFactory == null) {
+            throw new UnsupportedOperationException(
+                    "Adding databases dynamically is not supported. Connection was created without a DatabaseConnectionFactory.");
+        }
+
+        RedisURI redisURI = databaseConfig.getRedisURI();
+        if (databases.containsKey(redisURI)) {
+            throw new IllegalArgumentException("Database already exists: " + redisURI);
+        }
+
+        // Create new database connection using the factory
+        RedisDatabase<C> database = connectionFactory.createDatabase(databaseConfig, codec);
+
+        // Add listeners to the new connection if it's the current one
+        // (though it won't be current initially since we're just adding it)
+        databases.put(redisURI, database);
+    }
+
+    @Override
+    public void removeDatabase(RedisURI redisURI) {
+        if (redisURI == null) {
+            throw new IllegalArgumentException("RedisURI must not be null");
+        }
+
+        RedisDatabase<C> database = databases.get(redisURI);
+        if (database == null) {
+            throw new IllegalArgumentException("Database not found: " + redisURI);
+        }
+
+        if (current.getRedisURI().equals(redisURI)) {
+            throw new UnsupportedOperationException("Cannot remove the currently active database: " + redisURI);
+        }
+
+        // Remove the database and close its connection
+        databases.remove(redisURI);
+        database.getConnection().close();
     }
 
 }

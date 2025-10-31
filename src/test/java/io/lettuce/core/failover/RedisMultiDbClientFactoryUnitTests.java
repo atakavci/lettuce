@@ -4,15 +4,11 @@ import static io.lettuce.TestTags.UNIT_TEST;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Collections;
-import java.util.List;
-
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import io.lettuce.core.RedisURI;
 import io.lettuce.test.resource.FastShutdown;
 import io.lettuce.test.resource.TestClientResources;
-import io.lettuce.test.settings.TestSettings;
 
 /**
  * @author Mark Paluch
@@ -20,21 +16,14 @@ import io.lettuce.test.settings.TestSettings;
 @Tag(UNIT_TEST)
 class RedisMultiDbClientFactoryUnitTests {
 
-    private List<RedisURI> getEndpoints() {
-        return java.util.Arrays.asList(RedisURI.create(TestSettings.host(), TestSettings.port()),
-                RedisURI.create(TestSettings.host(), TestSettings.port(1)));
-    }
-
-    private static final RedisURI REDIS_URI = RedisURI.create(TestSettings.host(), TestSettings.port());
-
     @Test
     void plain() {
-        FastShutdown.shutdown(MultiDbClient.create(getEndpoints()));
+        FastShutdown.shutdown(MultiDbClient.create(MultiDbTestSupport.DBs));
     }
 
     @Test
     void withStringUri() {
-        FastShutdown.shutdown(MultiDbClient.create(getEndpoints()));
+        FastShutdown.shutdown(MultiDbClient.create(MultiDbTestSupport.DBs));
     }
 
     // @Test
@@ -44,12 +33,12 @@ class RedisMultiDbClientFactoryUnitTests {
 
     @Test
     void withUri() {
-        FastShutdown.shutdown(MultiDbClient.create(getEndpoints()));
+        FastShutdown.shutdown(MultiDbClient.create(MultiDbTestSupport.DBs));
     }
 
     @Test
     void withUriNull() {
-        assertThatThrownBy(() -> MultiDbClient.create(Collections.singletonList((RedisURI) null)))
+        assertThatThrownBy(() -> MultiDbClient.create(Collections.singletonList((DatabaseConfig) null)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -82,18 +71,20 @@ class RedisMultiDbClientFactoryUnitTests {
 
     @Test
     void clientResourcesWithUri() {
-        FastShutdown.shutdown(MultiDbClient.create(TestClientResources.get(), Collections.singletonList(REDIS_URI)));
+        FastShutdown
+                .shutdown(MultiDbClient.create(TestClientResources.get(), Collections.singletonList(MultiDbTestSupport.DB1)));
     }
 
     @Test
     void clientResourcesWithUriNull() {
-        assertThatThrownBy(() -> MultiDbClient.create(TestClientResources.get(), Collections.singletonList((RedisURI) null)))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                () -> MultiDbClient.create(TestClientResources.get(), Collections.singletonList((DatabaseConfig) null)))
+                        .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void clientResourcesNullWithUri() {
-        assertThatThrownBy(() -> MultiDbClient.create(null, Collections.singletonList(REDIS_URI)))
+        assertThatThrownBy(() -> MultiDbClient.create(null, Collections.singletonList(MultiDbTestSupport.DB1)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

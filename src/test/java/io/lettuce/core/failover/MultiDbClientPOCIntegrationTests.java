@@ -22,8 +22,7 @@ package io.lettuce.core.failover;
 import static io.lettuce.TestTags.INTEGRATION_TEST;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
-
+import java.util.Iterator;
 import javax.inject.Inject;
 
 import org.junit.jupiter.api.AfterEach;
@@ -32,10 +31,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisURI;
-import io.lettuce.core.TestSupport;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.api.sync.RedisCommands;
@@ -43,10 +40,8 @@ import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbPubSubConnection;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
-import io.lettuce.core.pubsub.api.sync.RedisPubSubCommands;
 import io.lettuce.test.LettuceExtension;
 import io.lettuce.test.TestFutures;
-import io.lettuce.test.settings.TestSettings;
 
 /**
  * Proof-of-Concept integration tests for {@link MultiDbClient} demonstrating database switching with key distribution across
@@ -65,13 +60,7 @@ import io.lettuce.test.settings.TestSettings;
  */
 @ExtendWith(LettuceExtension.class)
 @Tag(INTEGRATION_TEST)
-class MultiDbClientPOCIntegrationTests extends TestSupport {
-
-    private final MultiDbClient multiDbClient;
-
-    private final RedisClient client1;
-
-    private final RedisClient client2;
+class MultiDbClientPOCIntegrationTests extends MultiDbTestSupport {
 
     private final RedisURI endpoint1;
 
@@ -83,36 +72,24 @@ class MultiDbClientPOCIntegrationTests extends TestSupport {
 
     private StatefulRedisConnection<String, String> directConnection2;
 
-    private List<RedisURI> getEndpoints() {
-        return java.util.Arrays.asList(RedisURI.create(TestSettings.host(), TestSettings.port()),
-                RedisURI.create(TestSettings.host(), TestSettings.port(1)));
-    }
-
     @Inject
     MultiDbClientPOCIntegrationTests(MultiDbClient multiDbClient) {
-        this.multiDbClient = multiDbClient;
-        List<RedisURI> endpoints = getEndpoints();
-        this.endpoint1 = endpoints.get(0);
-        this.endpoint2 = endpoints.get(1);
-        this.client1 = RedisClient.create(endpoint1);
-        this.client2 = RedisClient.create(endpoint2);
+        super(multiDbClient);
+        Iterator<RedisURI> endpoints = multiDbClient.getRedisURIs().iterator();
+        this.endpoint1 = endpoints.next();
+        this.endpoint2 = endpoints.next();
     }
 
     @BeforeEach
     void setUp() {
         // Create connections
         multiDbConnection = multiDbClient.connect();
-        directConnection1 = client1.connect();
-        directConnection2 = client2.connect();
-
-        // Clean up any existing test keys
-        cleanupTestKeys();
+        directConnection1 = directClient1.connect();
+        directConnection2 = directClient2.connect();
     }
 
     @AfterEach
-    void tearDown() {
-        // // Clean up test keys
-        // cleanupTestKeys();
+    void tearDownEach() {
 
         // Close connections
         if (multiDbConnection != null) {
@@ -123,21 +100,6 @@ class MultiDbClientPOCIntegrationTests extends TestSupport {
         }
         if (directConnection2 != null) {
             directConnection2.close();
-        }
-    }
-
-    /**
-     * Clean up test keys (key1 through key1500) from both databases.
-     */
-    private void cleanupTestKeys() {
-        RedisCommands<String, String> sync1 = directConnection1 != null ? directConnection1.sync() : client1.connect().sync();
-        RedisCommands<String, String> sync2 = directConnection2 != null ? directConnection2.sync() : client2.connect().sync();
-
-        // Delete keys 1-1500 from both databases
-        for (int i = 1; i <= 1500; i++) {
-            String key = "key" + i;
-            sync1.del(key);
-            sync2.del(key);
         }
     }
 
@@ -544,8 +506,8 @@ class MultiDbClientPOCIntegrationTests extends TestSupport {
         Thread.sleep(100);
 
         // Create direct PubSub connections for publishing
-        StatefulRedisPubSubConnection<String, String> publisher1 = client1.connectPubSub();
-        StatefulRedisPubSubConnection<String, String> publisher2 = client2.connectPubSub();
+        StatefulRedisPubSubConnection<String, String> publisher1 = directClient1.connectPubSub();
+        StatefulRedisPubSubConnection<String, String> publisher2 = directClient2.connectPubSub();
 
         // Publisher thread that sends messages to both databases using async methods
         java.util.concurrent.atomic.AtomicBoolean publisherRunning = new java.util.concurrent.atomic.AtomicBoolean(true);

@@ -1,24 +1,17 @@
 package io.lettuce.core.failover;
 
-import static io.lettuce.test.settings.TestSettings.host;
-import static io.lettuce.test.settings.TestSettings.port;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.StreamSupport;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
-import io.lettuce.core.TestSupport;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.test.LettuceExtension;
 
@@ -29,40 +22,15 @@ import io.lettuce.test.LettuceExtension;
  */
 @ExtendWith(LettuceExtension.class)
 @Tag("integration")
-class CircuitBreakerMetricsIntegrationTests extends TestSupport {
+class CircuitBreakerMetricsIntegrationTests extends MultiDbTestSupport {
 
-    private final MultiDbClient client;
-
-    private final RedisClient client1;
-
-    private final RedisClient client2;
-
-    CircuitBreakerMetricsIntegrationTests() {
-        List<RedisURI> endpoints = getEndpoints();
-        this.client = MultiDbClient.create(endpoints);
-        this.client1 = RedisClient.create(endpoints.get(0));
-        this.client2 = RedisClient.create(endpoints.get(1));
-    }
-
-    private List<RedisURI> getEndpoints() {
-        return Arrays.asList(RedisURI.create(host(), port()), RedisURI.create(host(), port(1)));
-    }
-
-    @BeforeEach
-    void setUp() {
-        client1.connect().sync().flushall();
-        client2.connect().sync().flushall();
-    }
-
-    @AfterEach
-    void tearDown() {
-        client1.shutdown();
-        client2.shutdown();
+    CircuitBreakerMetricsIntegrationTests(MultiDbClient client) {
+        super(client);
     }
 
     @Test
     void shouldTrackSuccessfulCommands() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         RedisURI endpoint = connection.getCurrentEndpoint();
 
         // Execute successful command
@@ -79,7 +47,7 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
 
     @Test
     void shouldTrackMultipleCommands() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         RedisURI endpoint = connection.getCurrentEndpoint();
 
         // Execute multiple commands
@@ -97,7 +65,7 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
 
     @Test
     void shouldIsolatMetricsPerEndpoint() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         List<RedisURI> endpoints = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
                 .collect(java.util.stream.Collectors.toList());
 
@@ -126,7 +94,7 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
 
     @Test
     void shouldThrowExceptionForUnknownEndpoint() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
 
         RedisURI unknownEndpoint = RedisURI.create("redis://unknown:9999");
 
@@ -138,7 +106,7 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
 
     @Test
     void shouldMaintainMetricsAfterSwitch() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         RedisURI firstEndpoint = connection.getCurrentEndpoint();
 
         // Execute command on first endpoint
@@ -168,7 +136,7 @@ class CircuitBreakerMetricsIntegrationTests extends TestSupport {
 
     @Test
     void shouldExposeMetricsViaCircuitBreaker() {
-        StatefulRedisMultiDbConnection<String, String> connection = client.connect();
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         RedisURI endpoint = connection.getCurrentEndpoint();
 
         // Execute commands
