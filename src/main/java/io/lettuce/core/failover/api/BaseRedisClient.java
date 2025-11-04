@@ -1,4 +1,4 @@
-package io.lettuce.core.failover;
+package io.lettuce.core.failover.api;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
@@ -15,7 +15,7 @@ import io.netty.util.concurrent.EventExecutorGroup;
  * @since 7.1
  */
 // This is same interface that AbstractRedisClient expose as public
-public interface BaseClient extends AutoCloseable {
+public interface BaseRedisClient extends AutoCloseable {
 
     /**
      * Returns the {@link ClientOptions} which are valid for that client. Connections inherit the current options at the moment

@@ -1,4 +1,4 @@
-package io.lettuce.core.failover;
+package io.lettuce.core.failover.metrics;
 
 /**
  * Interface for time-based sliding window metrics. Provides lock-free, thread-safe tracking of success and failure counts

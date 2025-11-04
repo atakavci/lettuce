@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
 
 import io.lettuce.TestTags;
+import io.lettuce.core.failover.api.CircuitBreakerStateListener;
 
 /**
  * Unit tests for {@link CircuitBreakerStateListener} functionality.

@@ -21,10 +21,13 @@ package io.lettuce.core.failover;
 
 import static io.lettuce.TestTags.INTEGRATION_TEST;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import javax.inject.Inject;
@@ -40,6 +43,7 @@ import io.lettuce.core.RedisURI;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.test.TestFutures;
 import io.lettuce.test.LettuceExtension;
+import io.lettuce.test.settings.TestSettings;
 
 /**
  * Integration tests for {@link StatefulRedisMultiDbConnection} with basic commands and database switching.
@@ -287,6 +291,163 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
         connection.sync().rpush("listlen", "one", "two", "three");
         Long length = connection.sync().llen("listlen");
         assertEquals(3L, length);
+        connection.close();
+    }
+
+    // ========== Dynamic Database Management Tests ==========
+
+    @Test
+    void shouldAddDatabase() {
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
+
+        // Get initial endpoint count
+        List<RedisURI> initialEndpoints = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
+                .collect(Collectors.toList());
+        int initialCount = initialEndpoints.size();
+
+        // Add a new database (using port(2) which should be available in test environment)
+        RedisURI newUri = RedisURI.Builder.redis(TestSettings.host(), TestSettings.port(2))
+                .withPassword(TestSettings.password()).build();
+        connection.addDatabase(newUri, 1.0f);
+
+        // Verify it was added
+        List<RedisURI> updatedEndpoints = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
+                .collect(Collectors.toList());
+
+        assertThat(updatedEndpoints).hasSize(initialCount + 1);
+        assertThat(updatedEndpoints).contains(newUri);
+
+        connection.close();
+    }
+
+    @Test
+    void shouldRejectAddingDuplicateDatabase() {
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
+
+        // Get an existing endpoint
+        RedisURI existingUri = connection.getCurrentEndpoint();
+
+        // Try to add it again - should fail
+        assertThatThrownBy(() -> connection.addDatabase(existingUri, 1.0f)).isInstanceOf(IllegalArgumentException.class);
+
+        connection.close();
+    }
+
+    @Test
+    void shouldRemoveDatabase() {
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
+
+        // Add a new database
+        RedisURI newUri = RedisURI.Builder.redis(TestSettings.host(), TestSettings.port(2))
+                .withPassword(TestSettings.password()).build();
+        connection.addDatabase(newUri, 1.0f);
+
+        // Verify it was added
+        List<RedisURI> endpointsAfterAdd = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
+                .collect(Collectors.toList());
+        assertThat(endpointsAfterAdd).contains(newUri);
+
+        // Remove it
+        connection.removeDatabase(newUri);
+
+        // Verify it was removed
+        List<RedisURI> endpointsAfterRemove = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
+                .collect(Collectors.toList());
+        assertThat(endpointsAfterRemove).doesNotContain(newUri);
+
+        connection.close();
+    }
+
+    @Test
+    void shouldRejectRemovingNonExistentDatabase() {
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
+
+        // Try to remove a database that doesn't exist
+        RedisURI nonExistentUri = RedisURI.create("redis://localhost:9999");
+
+        assertThatThrownBy(() -> connection.removeDatabase(nonExistentUri)).isInstanceOf(IllegalArgumentException.class);
+
+        connection.close();
+    }
+
+    @Test
+    void shouldRejectRemovingLastDatabase() {
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
+
+        // Get all endpoints
+        List<RedisURI> endpoints = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
+                .collect(Collectors.toList());
+
+        // If we have more than one endpoint, remove all but one
+        if (endpoints.size() > 1) {
+            for (int i = 0; i < endpoints.size() - 1; i++) {
+                RedisURI endpoint = endpoints.get(i);
+                // Switch away from this endpoint before removing it
+                if (endpoint.equals(connection.getCurrentEndpoint())) {
+                    connection.switchToDatabase(endpoints.get(endpoints.size() - 1));
+                }
+                connection.removeDatabase(endpoint);
+            }
+        }
+
+        // Now we should have exactly one endpoint left
+        List<RedisURI> remainingEndpoints = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
+                .collect(Collectors.toList());
+        assertThat(remainingEndpoints).hasSize(1);
+
+        // Try to remove the last one - should fail
+        RedisURI lastEndpoint = remainingEndpoints.get(0);
+
+        assertThatThrownBy(() -> connection.removeDatabase(lastEndpoint)).isInstanceOf(UnsupportedOperationException.class);
+
+        connection.close();
+    }
+
+    @Test
+    void shouldAddDatabaseAndSwitchToIt() {
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
+
+        // Add a new database
+        RedisURI newUri = RedisURI.Builder.redis(TestSettings.host(), TestSettings.port(2))
+                .withPassword(TestSettings.password()).build();
+        connection.addDatabase(newUri, 1.0f);
+
+        // Switch to it
+        connection.switchToDatabase(newUri);
+
+        // Verify it's now active
+        assertThat(connection.getCurrentEndpoint()).isEqualTo(newUri);
+
+        // Verify we can execute commands on it
+        connection.sync().set("test-key", "test-value");
+        assertThat(connection.sync().get("test-key")).isEqualTo("test-value");
+
+        connection.close();
+    }
+
+    @Test
+    void shouldRejectRemovingActiveDatabase() {
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
+
+        // Get the current active endpoint
+        RedisURI activeEndpoint = connection.getCurrentEndpoint();
+
+        // Try to remove it - should fail
+        assertThatThrownBy(() -> connection.removeDatabase(activeEndpoint)).isInstanceOf(UnsupportedOperationException.class);
+
+        connection.close();
+    }
+
+    @Test
+    void shouldRejectSwitchingToNonExistentEndpoint() {
+        StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
+
+        // Create a URI that's not in the configured endpoints
+        RedisURI nonExistentUri = RedisURI.create("redis://localhost:9999");
+
+        // Note: Current implementation throws UnsupportedOperationException for non-existent endpoints
+        assertThatThrownBy(() -> connection.switchToDatabase(nonExistentUri)).isInstanceOf(UnsupportedOperationException.class);
+
         connection.close();
     }
 

@@ -16,7 +16,7 @@ import io.lettuce.core.resource.ClientResources;
  * @author Ali Takavci
  * @since 7.1
  */
-public class DatabaseEndpointImpl extends DefaultEndpoint implements DatabaseEndpoint {
+class DatabaseEndpointImpl extends DefaultEndpoint implements DatabaseEndpoint {
 
     private CircuitBreaker circuitBreaker;
 

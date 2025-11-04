@@ -3,6 +3,7 @@ package io.lettuce.core.failover;
 import java.util.Collection;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.codec.RedisCodec;
+import io.lettuce.core.failover.api.BaseRedisClient;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbPubSubConnection;
 import io.lettuce.core.resource.ClientResources;
@@ -11,7 +12,7 @@ import io.lettuce.core.resource.ClientResources;
  * @author Ali Takavci
  * @since 7.1
  */
-public interface MultiDbClient extends BaseClient {
+public interface MultiDbClient extends BaseRedisClient {
 
     public static MultiDbClient create(Collection<DatabaseConfig> databaseConfigs) {
         if (databaseConfigs == null || databaseConfigs.isEmpty()) {

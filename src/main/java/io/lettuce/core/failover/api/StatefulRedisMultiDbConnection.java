@@ -12,6 +12,6 @@ import io.lettuce.core.api.StatefulRedisConnection;
  * @author Ali Takavci
  * @since 7.1
  */
-public interface StatefulRedisMultiDbConnection<K, V> extends StatefulRedisConnection<K, V>, BaseRedisMultiDb {
+public interface StatefulRedisMultiDbConnection<K, V> extends StatefulRedisConnection<K, V>, BaseRedisMultiDbConnection {
 
 }

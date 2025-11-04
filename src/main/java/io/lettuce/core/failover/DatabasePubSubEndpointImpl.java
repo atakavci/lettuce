@@ -16,7 +16,7 @@ import io.lettuce.core.resource.ClientResources;
  * @author Ali Takavci
  * @since 7.1
  */
-public class DatabasePubSubEndpointImpl<K, V> extends PubSubEndpoint<K, V> implements DatabaseEndpoint {
+class DatabasePubSubEndpointImpl<K, V> extends PubSubEndpoint<K, V> implements DatabaseEndpoint {
 
     private CircuitBreaker circuitBreaker;
 

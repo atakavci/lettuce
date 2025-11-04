@@ -33,7 +33,7 @@ import io.lettuce.core.SocketOptions;
 import io.lettuce.core.TimeoutOptions;
 import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.codec.StringCodec;
-import reactor.core.publisher.Mono;
+import io.lettuce.core.failover.api.CircuitBreakerStateListener;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.test.WithPassword;
 import io.lettuce.test.settings.TestSettings;

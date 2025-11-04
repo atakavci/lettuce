@@ -12,6 +12,7 @@ import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
  * @author Ali Takavci
  * @since 7.1
  */
-public interface StatefulRedisMultiDbPubSubConnection<K, V> extends StatefulRedisPubSubConnection<K, V>, BaseRedisMultiDb {
+public interface StatefulRedisMultiDbPubSubConnection<K, V>
+        extends StatefulRedisPubSubConnection<K, V>, BaseRedisMultiDbConnection {
 
 }

@@ -8,12 +8,28 @@ import io.lettuce.core.failover.DatabaseConfig;
  * @author Ali Takavci
  * @since 7.1
  */
-public interface BaseRedisMultiDb {
+public interface BaseRedisMultiDbConnection {
 
+    /**
+     * Switch to a different database.
+     *
+     * @param redisURI the Redis URI of the database to switch to, must not be {@code null}
+     * @throws IllegalArgumentException if the database does not exist
+     */
     void switchToDatabase(RedisURI redisURI);
 
+    /**
+     * Get the current database endpoint.
+     *
+     * @return the current database endpoint
+     */
     RedisURI getCurrentEndpoint();
 
+    /**
+     * Get all available database endpoints.
+     *
+     * @return an iterable of all database endpoints
+     */
     Iterable<RedisURI> getEndpoints();
 
     /**

@@ -11,7 +11,7 @@ import io.lettuce.core.protocol.RedisCommand;
  * @author Ali Takavci
  * @since 7.1
  */
-public interface DatabaseEndpoint {
+interface DatabaseEndpoint {
 
     Collection<RedisCommand<?, ?, ?>> drainCommands();
 

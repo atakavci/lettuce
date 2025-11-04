@@ -1,4 +1,4 @@
-package io.lettuce.core.failover;
+package io.lettuce.core.failover.metrics;
 
 import java.util.concurrent.atomic.AtomicLong;
 

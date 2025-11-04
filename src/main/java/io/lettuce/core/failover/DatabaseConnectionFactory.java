@@ -14,7 +14,7 @@ import io.lettuce.core.codec.RedisCodec;
  * @since 7.1
  */
 @FunctionalInterface
-public interface DatabaseConnectionFactory<C extends StatefulRedisConnection<K, V>, K, V> {
+interface DatabaseConnectionFactory<C extends StatefulRedisConnection<K, V>, K, V> {
 
     /**
      * Create a new database connection for the given configuration.

@@ -9,6 +9,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import io.lettuce.core.failover.metrics.LockFreeSlidingWindowMetrics;
+import io.lettuce.core.failover.metrics.MetricsSnapshot;
+
 /**
  * Unit tests for lock-free sliding window metrics implementation.
  *

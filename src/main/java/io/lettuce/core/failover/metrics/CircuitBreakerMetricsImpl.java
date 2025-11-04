@@ -1,4 +1,4 @@
-package io.lettuce.core.failover;
+package io.lettuce.core.failover.metrics;
 
 /**
  * Lock-free, thread-safe implementation of circuit breaker metrics using a time-based sliding window. Tracks successes and

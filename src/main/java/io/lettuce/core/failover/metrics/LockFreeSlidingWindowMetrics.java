@@ -1,4 +1,4 @@
-package io.lettuce.core.failover;
+package io.lettuce.core.failover.metrics;
 
 /**
  * Lock-free, thread-safe implementation of sliding window metrics using atomic operations and a ring buffer of time buckets.

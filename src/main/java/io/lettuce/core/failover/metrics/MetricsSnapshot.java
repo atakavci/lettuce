@@ -1,4 +1,4 @@
-package io.lettuce.core.failover;
+package io.lettuce.core.failover.metrics;
 
 /**
  * Immutable snapshot of metrics at a point in time. Represents the state of success and failure counts within a specific time
