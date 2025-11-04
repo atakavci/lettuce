@@ -30,12 +30,13 @@ import io.netty.util.concurrent.ImmediateEventExecutor;
 /**
  * Unit tests for {@link RedisClient}.
  *
- * @author Mark Paluch
+ * @author Ali Takavci
+ * @since 7.1
  */
 @SuppressWarnings("unchecked")
 @ExtendWith(MockitoExtension.class)
 @Tag(UNIT_TEST)
-class RedisMultDbClientUnitTests {
+class RedisMultiDbClientUnitTests {
 
     @Mock
     ClientResources clientResources;

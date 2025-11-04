@@ -13,7 +13,8 @@ import io.lettuce.core.resource.ClientResources;
  * Database endpoint implementation for multi-database failover with circuit breaker metrics tracking. Extends DefaultEndpoint
  * and tracks command successes and failures.
  *
- * @author Augment
+ * @author Ali Takavci
+ * @since 7.1
  */
 public class DatabaseEndpointImpl extends DefaultEndpoint implements DatabaseEndpoint {
 
@@ -44,21 +45,13 @@ public class DatabaseEndpointImpl extends DefaultEndpoint implements DatabaseEnd
 
     @Override
     public <K, V, T> RedisCommand<K, V, T> write(RedisCommand<K, V, T> command) {
-        // Delegate to parent
         RedisCommand<K, V, T> result = super.write(command);
 
         // Attach completion callback to track success/failure
         if (circuitBreaker != null && result instanceof CompleteableCommand) {
             @SuppressWarnings("unchecked")
             CompleteableCommand<T> completeable = (CompleteableCommand<T>) result;
-            CircuitBreakerMetrics metrics = circuitBreaker.getMetrics();
-            completeable.onComplete((output, error) -> {
-                if (error != null) {
-                    metrics.recordFailure();
-                } else {
-                    metrics.recordSuccess();
-                }
-            });
+            completeable.onComplete(this::handleFailure);
         }
 
         return result;
@@ -71,23 +64,25 @@ public class DatabaseEndpointImpl extends DefaultEndpoint implements DatabaseEnd
 
         // Attach completion callbacks to track success/failure for each command
         if (circuitBreaker != null) {
-            CircuitBreakerMetrics metrics = circuitBreaker.getMetrics();
             for (RedisCommand<K, V, ?> command : result) {
                 if (command instanceof CompleteableCommand) {
                     @SuppressWarnings("unchecked")
                     CompleteableCommand<Object> completeable = (CompleteableCommand<Object>) command;
-                    completeable.onComplete((output, error) -> {
-                        if (error != null) {
-                            metrics.recordFailure();
-                        } else {
-                            metrics.recordSuccess();
-                        }
-                    });
+                    completeable.onComplete(this::handleFailure);
                 }
             }
         }
 
         return result;
+    }
+
+    private void handleFailure(Object output, Throwable error) {
+        if (error != null && circuitBreaker.isCircuitBreakerTrackedException(error)) {
+            circuitBreaker.getMetrics().recordFailure();
+            circuitBreaker.evaluateMetrics();
+        } else {
+            circuitBreaker.getMetrics().recordSuccess();
+        }
     }
 
     @Override

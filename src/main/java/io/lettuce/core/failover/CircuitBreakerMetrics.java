@@ -9,7 +9,8 @@ package io.lettuce.core.failover;
  * automatically expired and cleaned up.
  * </p>
  *
- * @author Augment
+ * @author Ali Takavci
+ * @since 7.1
  */
 public interface CircuitBreakerMetrics {
 

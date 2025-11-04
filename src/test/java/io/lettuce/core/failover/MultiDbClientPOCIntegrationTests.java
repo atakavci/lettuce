@@ -22,7 +22,20 @@ package io.lettuce.core.failover;
 import static io.lettuce.TestTags.INTEGRATION_TEST;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import javax.inject.Inject;
 
 import org.junit.jupiter.api.AfterEach;
@@ -56,7 +69,8 @@ import io.lettuce.test.TestFutures;
  * <li>Verifying that keys are correctly distributed across databases</li>
  * </ul>
  *
- * @author Test Suite
+ * @author Ali Takavci
+ * @since 7.1
  */
 @ExtendWith(LettuceExtension.class)
 @Tag(INTEGRATION_TEST)
@@ -269,8 +283,8 @@ class MultiDbClientPOCIntegrationTests extends MultiDbTestSupport {
         RedisAsyncCommands<String, String> multiDbAsync = multiDbConnection.async();
 
         // Lists to track all futures
-        java.util.List<RedisFuture<String>> writeFutures = new java.util.ArrayList<>();
-        java.util.Map<String, Integer> keyToExpectedEndpoint = new java.util.HashMap<>();
+        List<RedisFuture<String>> writeFutures = new ArrayList<>();
+        Map<String, Integer> keyToExpectedEndpoint = new HashMap<>();
 
         // Phase 1: Fire write commands for keys 1-500 to endpoint1 (NO WAITING)
         multiDbConnection.switchToDatabase(endpoint1);
@@ -320,7 +334,7 @@ class MultiDbClientPOCIntegrationTests extends MultiDbTestSupport {
         }
 
         // Phase 4: Fire read commands to verify writes (NO WAITING)
-        java.util.Map<String, RedisFuture<String>> keyToReadFuture = new java.util.HashMap<>();
+        Map<String, RedisFuture<String>> keyToReadFuture = new HashMap<>();
 
         // Read from endpoint1 (should have keys 1-500 and 1001-1500)
         multiDbConnection.switchToDatabase(endpoint1);
@@ -344,8 +358,8 @@ class MultiDbClientPOCIntegrationTests extends MultiDbTestSupport {
         }
 
         // Wait for all reads to complete and collect results
-        java.util.Map<String, String> readResults = new java.util.HashMap<>();
-        for (java.util.Map.Entry<String, RedisFuture<String>> entry : keyToReadFuture.entrySet()) {
+        Map<String, String> readResults = new HashMap<>();
+        for (Map.Entry<String, RedisFuture<String>> entry : keyToReadFuture.entrySet()) {
             String key = entry.getKey();
             try {
                 String value = TestFutures.getOrTimeout(entry.getValue());
@@ -366,14 +380,14 @@ class MultiDbClientPOCIntegrationTests extends MultiDbTestSupport {
         int wrongEndpointCount = 0;
         int correctEndpointCount = 0;
 
-        java.util.List<String> missingKeys = new java.util.ArrayList<>();
-        java.util.List<String> wrongEndpointKeys = new java.util.ArrayList<>();
+        List<String> missingKeys = new ArrayList<>();
+        List<String> wrongEndpointKeys = new ArrayList<>();
 
         // Prepare output file
-        java.io.File outputFile = new java.io.File("target/async-test-results.txt");
+        File outputFile = new File("target/async-test-results.txt");
         outputFile.getParentFile().mkdirs();
 
-        try (java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(outputFile))) {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(outputFile))) {
             writer.println(seperator2());
             writer.println("MultiDbClient Async Test Results");
             writer.println(seperator2());
@@ -477,12 +491,12 @@ class MultiDbClientPOCIntegrationTests extends MultiDbTestSupport {
     @Test
     void testPubSubWithMultiDbClient() throws Exception {
         // Prepare output file
-        java.io.File outputFile = new java.io.File("target/pubsub-test-results.txt");
+        File outputFile = new File("target/pubsub-test-results.txt");
         outputFile.getParentFile().mkdirs();
 
         // Thread-safe list to collect messages
-        java.util.List<String> receivedMessages = new java.util.concurrent.CopyOnWriteArrayList<>();
-        java.util.concurrent.atomic.AtomicInteger messageCount = new java.util.concurrent.atomic.AtomicInteger(0);
+        List<String> receivedMessages = new CopyOnWriteArrayList<>();
+        AtomicInteger messageCount = new AtomicInteger(0);
 
         // Create PubSub connection with MultiDbClient
         StatefulRedisMultiDbPubSubConnection<String, String> multiDbPubSub = multiDbClient.connectPubSub();
@@ -510,8 +524,8 @@ class MultiDbClientPOCIntegrationTests extends MultiDbTestSupport {
         StatefulRedisPubSubConnection<String, String> publisher2 = directClient2.connectPubSub();
 
         // Publisher thread that sends messages to both databases using async methods
-        java.util.concurrent.atomic.AtomicBoolean publisherRunning = new java.util.concurrent.atomic.AtomicBoolean(true);
-        java.util.concurrent.atomic.AtomicInteger publishedCount = new java.util.concurrent.atomic.AtomicInteger(0);
+        AtomicBoolean publisherRunning = new AtomicBoolean(true);
+        AtomicInteger publishedCount = new AtomicInteger(0);
 
         Thread publisherThread = new Thread(() -> {
             int messageId = 1;
@@ -585,8 +599,8 @@ class MultiDbClientPOCIntegrationTests extends MultiDbTestSupport {
         // Analyze received messages
         int db1Count = 0;
         int db2Count = 0;
-        java.util.Set<Integer> db1MessageIds = new java.util.TreeSet<>();
-        java.util.Set<Integer> db2MessageIds = new java.util.TreeSet<>();
+        Set<Integer> db1MessageIds = new TreeSet<>();
+        Set<Integer> db2MessageIds = new TreeSet<>();
 
         for (String message : receivedMessages) {
             if (message.contains("database:1")) {
@@ -617,7 +631,7 @@ class MultiDbClientPOCIntegrationTests extends MultiDbTestSupport {
         }
 
         // Write results to file
-        try (java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(outputFile))) {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(outputFile))) {
             writer.println(seperator2());
             writer.println("MultiDbClient PubSub Test Results");
             writer.println(seperator2());
@@ -649,11 +663,11 @@ class MultiDbClientPOCIntegrationTests extends MultiDbTestSupport {
             writer.println(seperator1());
             if (!db1MessageIds.isEmpty()) {
                 writer.printf("Database 1 message IDs: %d to %d (%d unique)%n", db1MessageIds.iterator().next(),
-                        ((java.util.TreeSet<Integer>) db1MessageIds).last(), db1MessageIds.size());
+                        ((TreeSet<Integer>) db1MessageIds).last(), db1MessageIds.size());
             }
             if (!db2MessageIds.isEmpty()) {
                 writer.printf("Database 2 message IDs: %d to %d (%d unique)%n", db2MessageIds.iterator().next(),
-                        ((java.util.TreeSet<Integer>) db2MessageIds).last(), db2MessageIds.size());
+                        ((TreeSet<Integer>) db2MessageIds).last(), db2MessageIds.size());
             }
             writer.println();
 

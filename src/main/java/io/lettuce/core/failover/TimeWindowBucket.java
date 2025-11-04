@@ -11,7 +11,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * the counters are atomic for thread-safe updates without locks.
  * </p>
  *
- * @author Augment
+ * @author Ali Takavci
+ * @since 7.1
  */
 public class TimeWindowBucket {
 

@@ -4,6 +4,10 @@ import io.lettuce.core.RedisURI;
 import io.lettuce.core.failover.CircuitBreaker;
 import io.lettuce.core.failover.DatabaseConfig;
 
+/**
+ * @author Ali Takavci
+ * @since 7.1
+ */
 public interface BaseRedisMultiDb {
 
     void switchToDatabase(RedisURI redisURI);

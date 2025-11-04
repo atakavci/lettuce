@@ -43,9 +43,9 @@ import io.lettuce.test.TestFutures;
 import io.lettuce.test.LettuceExtension;
 
 /**
- * @author Mark Paluch
- * @author Jongyeol Choi
- * @author Hari Mani
+ * 
+ * @author Ali Takavci
+ * @since 7.1
  */
 @ExtendWith(LettuceExtension.class)
 @Tag(INTEGRATION_TEST)

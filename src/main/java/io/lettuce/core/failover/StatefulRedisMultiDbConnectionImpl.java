@@ -35,6 +35,9 @@ import io.lettuce.core.resource.ClientResources;
  * Stateful connection wrapper that holds multiple underlying connections and delegates to the currently active one. Command
  * interfaces (sync/async/reactive) are dynamic proxies that always target the current active connection at invocation time so
  * they remain valid across switches.
+ *
+ * @author Ali Takavci
+ * @since 7.1
  */
 public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnection<K, V>, K, V>
         implements StatefulRedisMultiDbConnection<K, V> {
@@ -74,6 +77,29 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
         this.sync = newRedisSyncCommandsImpl();
         this.reactive = newRedisReactiveCommandsImpl();
 
+        databases.values().forEach(db -> db.getCircuitBreaker().addListener(this::onCircuitBreakerStateChange));
+    }
+
+    private void onCircuitBreakerStateChange(CircuitBreakerStateChangeEvent event) {
+        if (event.getCircuitBreaker() == current.getCircuitBreaker() && event.getNewState() == CircuitBreaker.State.OPEN) {
+            failoverFrom(current);
+        }
+    }
+
+    private void failoverFrom(RedisDatabase<C> fromDb) {
+        RedisDatabase<C> healthyDatabase = getHealthyDatabase(fromDb);
+        if (healthyDatabase != null) {
+            switchToDatabase(healthyDatabase.getRedisURI());
+        } else {
+            // No healthy database found, stay on the current one
+            // TODO: manage max attempts to failover
+        }
+    }
+
+    private RedisDatabase<C> getHealthyDatabase(RedisDatabase<C> current) {
+        return databases.values().stream().filter(db -> db != current)
+                .filter(db -> db.getCircuitBreaker().getCurrentState() == CircuitBreaker.State.CLOSED)
+                .max(Comparator.comparingDouble(RedisDatabase::getWeight)).get();
     }
 
     @Override
@@ -274,6 +300,8 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
         // Add listeners to the new connection if it's the current one
         // (though it won't be current initially since we're just adding it)
         databases.put(redisURI, database);
+
+        database.getCircuitBreaker().addListener(this::onCircuitBreakerStateChange);
     }
 
     @Override
@@ -294,6 +322,7 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
         // Remove the database and close its connection
         databases.remove(redisURI);
         database.getConnection().close();
+        database.getCircuitBreaker().removeListener(this::onCircuitBreakerStateChange);
     }
 
 }

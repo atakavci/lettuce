@@ -24,6 +24,10 @@ import io.lettuce.core.pubsub.api.sync.RedisPubSubCommands;
 import io.lettuce.core.resource.ClientResources;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
+/**
+ * @author Ali Takavci
+ * @since 7.1
+ */
 public class StatefulRedisMultiDbPubSubConnectionImpl<K, V>
         extends StatefulRedisMultiDbConnectionImpl<StatefulRedisPubSubConnection<K, V>, K, V>
         implements StatefulRedisMultiDbPubSubConnection<K, V> {

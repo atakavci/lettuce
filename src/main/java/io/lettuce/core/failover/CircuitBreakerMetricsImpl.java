@@ -9,7 +9,8 @@ package io.lettuce.core.failover;
  * seconds). Old data outside the window is automatically expired and cleaned up.
  * </p>
  *
- * @author Augment
+ * @author Ali Takavci
+ * @since 7.1
  */
 public class CircuitBreakerMetricsImpl implements CircuitBreakerMetrics {
 

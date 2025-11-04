@@ -14,7 +14,8 @@ package io.lettuce.core.failover;
  * </ul>
  * </p>
  *
- * @author Augment
+ * @author Ali Takavci
+ * @since 7.1
  */
 public interface SlidingWindowMetrics {
 

@@ -44,7 +44,8 @@ import io.lettuce.test.LettuceExtension;
 /**
  * Integration tests for {@link StatefulRedisMultiDbConnection} with basic commands and database switching.
  *
- * @author Test Suite
+ * @author Ali Takavci
+ * @since 7.1
  */
 @ExtendWith(LettuceExtension.class)
 @Tag(INTEGRATION_TEST)

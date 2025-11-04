@@ -9,7 +9,9 @@ import io.lettuce.core.codec.RedisCodec;
  * @param <C> Connection type
  * @param <K> Key type
  * @param <V> Value type
- * @author Augment
+ * 
+ * @author Ali Takavci
+ * @since 7.1
  */
 @FunctionalInterface
 public interface DatabaseConnectionFactory<C extends StatefulRedisConnection<K, V>, K, V> {

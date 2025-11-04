@@ -1,5 +1,9 @@
 package io.lettuce.core;
 
+/**
+ * @author Ali Takavci
+ * @since 7.1
+ */
 public interface Delegating<T> {
 
     T getDelegate();

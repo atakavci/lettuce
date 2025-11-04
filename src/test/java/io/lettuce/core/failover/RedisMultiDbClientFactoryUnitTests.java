@@ -11,7 +11,8 @@ import io.lettuce.test.resource.FastShutdown;
 import io.lettuce.test.resource.TestClientResources;
 
 /**
- * @author Mark Paluch
+ * @author Ali Takavci
+ * @since 7.1
  */
 @Tag(UNIT_TEST)
 class RedisMultiDbClientFactoryUnitTests {

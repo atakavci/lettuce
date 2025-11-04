@@ -1,5 +1,6 @@
 package io.lettuce.core.failover;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
@@ -12,6 +13,10 @@ import io.lettuce.core.RedisURI;
 import io.lettuce.core.TestSupport;
 import io.lettuce.test.settings.TestSettings;
 
+/**
+ * @author Ali Takavci
+ * @since 7.1
+ */
 public class MultiDbTestSupport extends TestSupport {
 
     protected final MultiDbClient multiDbClient;
@@ -62,9 +67,20 @@ public class MultiDbTestSupport extends TestSupport {
 
     public static List<DatabaseConfig> getDatabaseConfigs(RedisURI... URIs) {
         float weight = 1.0f;
-        List<DatabaseConfig> endpoints = new java.util.ArrayList<>();
+        List<DatabaseConfig> endpoints = new ArrayList<>();
         for (RedisURI uri : URIs) {
             endpoints.add(new DatabaseConfig(uri, weight));
+            weight /= 2;
+        }
+        return endpoints;
+    }
+
+    public static List<DatabaseConfig> getDatabaseConfigs(CircuitBreaker.CircuitBreakerConfig circuitBreakerConfig,
+            RedisURI... URIs) {
+        float weight = 1.0f;
+        List<DatabaseConfig> endpoints = new ArrayList<>();
+        for (RedisURI uri : URIs) {
+            endpoints.add(new DatabaseConfig(uri, weight, null, circuitBreakerConfig));
             weight /= 2;
         }
         return endpoints;

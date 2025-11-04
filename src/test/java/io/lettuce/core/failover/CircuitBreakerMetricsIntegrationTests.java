@@ -5,7 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -18,12 +21,14 @@ import io.lettuce.test.LettuceExtension;
 /**
  * Integration tests for circuit breaker metrics tracking in multi-database connections.
  *
- * @author Augment
+ * @author Ali Takavci
+ * @since 7.1
  */
 @ExtendWith(LettuceExtension.class)
 @Tag("integration")
 class CircuitBreakerMetricsIntegrationTests extends MultiDbTestSupport {
 
+    @Inject
     CircuitBreakerMetricsIntegrationTests(MultiDbClient client) {
         super(client);
     }
@@ -67,7 +72,7 @@ class CircuitBreakerMetricsIntegrationTests extends MultiDbTestSupport {
     void shouldIsolatMetricsPerEndpoint() {
         StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         List<RedisURI> endpoints = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
-                .collect(java.util.stream.Collectors.toList());
+                .collect(Collectors.toList());
 
         // Execute command on first endpoint
         connection.sync().set("key1", "value1");
@@ -116,7 +121,7 @@ class CircuitBreakerMetricsIntegrationTests extends MultiDbTestSupport {
 
         // Switch to second endpoint
         List<RedisURI> endpoints = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
-                .collect(java.util.stream.Collectors.toList());
+                .collect(Collectors.toList());
         RedisURI secondEndpoint = endpoints.stream().filter(uri -> !uri.equals(firstEndpoint)).findFirst()
                 .orElseThrow(() -> new IllegalStateException("No second endpoint found"));
         connection.switchToDatabase(secondEndpoint);

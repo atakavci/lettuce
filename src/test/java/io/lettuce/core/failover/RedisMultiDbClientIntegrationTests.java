@@ -36,7 +36,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Integration tests for {@link MultiDbClient}.
  *
- * @author Mark Paluch
+ * @author Ali Takavci
+ * @since 7.1
  */
 @Tag(INTEGRATION_TEST)
 class RedisMultiDbClientIntegrationTests extends TestSupport {

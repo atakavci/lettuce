@@ -22,7 +22,8 @@ package io.lettuce.core.failover;
  * concurrently without contention.
  * </p>
  *
- * @author Augment
+ * @author Ali Takavci
+ * @since 7.1
  */
 public class LockFreeSlidingWindowMetrics implements SlidingWindowMetrics {
 

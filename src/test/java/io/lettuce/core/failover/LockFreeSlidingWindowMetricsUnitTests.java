@@ -12,7 +12,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for lock-free sliding window metrics implementation.
  *
- * @author Augment
+ * @author Ali Takavci
+ * @since 7.1
  */
 @Tag("unit")
 @DisplayName("Lock-Free Sliding Window Metrics")

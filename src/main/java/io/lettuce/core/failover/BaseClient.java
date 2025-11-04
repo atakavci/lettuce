@@ -10,6 +10,10 @@ import io.lettuce.core.event.command.CommandListener;
 import io.lettuce.core.resource.ClientResources;
 import io.netty.util.concurrent.EventExecutorGroup;
 
+/**
+ * @author Ali Takavci
+ * @since 7.1
+ */
 // This is same interface that AbstractRedisClient expose as public
 public interface BaseClient extends AutoCloseable {
 

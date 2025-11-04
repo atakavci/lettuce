@@ -9,7 +9,8 @@ package io.lettuce.core.failover;
  * change afterward.
  * </p>
  *
- * @author Augment
+ * @author Ali Takavci
+ * @since 7.1
  */
 public class MetricsSnapshot {
 

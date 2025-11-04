@@ -1,5 +1,7 @@
 package io.lettuce.core.failover;
 
+import java.lang.management.ManagementFactory;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -7,7 +9,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Performance tests for lock-free sliding window metrics.
  *
- * @author Augment
+ * @author Ali Takavci
+ * @since 7.1
  */
 @Tag("performance")
 @DisplayName("Sliding Window Metrics Performance")
@@ -125,8 +128,8 @@ class SlidingWindowMetricsPerformanceTests {
     @DisplayName("should measure GC impact")
     void shouldMeasureGCImpact() {
         System.gc();
-        long gcCountBefore = java.lang.management.ManagementFactory.getGarbageCollectorMXBeans().stream()
-                .mapToLong(b -> b.getCollectionCount()).sum();
+        long gcCountBefore = ManagementFactory.getGarbageCollectorMXBeans().stream().mapToLong(b -> b.getCollectionCount())
+                .sum();
 
         LockFreeSlidingWindowMetrics metrics = new LockFreeSlidingWindowMetrics();
 
@@ -140,8 +143,8 @@ class SlidingWindowMetricsPerformanceTests {
         }
 
         System.gc();
-        long gcCountAfter = java.lang.management.ManagementFactory.getGarbageCollectorMXBeans().stream()
-                .mapToLong(b -> b.getCollectionCount()).sum();
+        long gcCountAfter = ManagementFactory.getGarbageCollectorMXBeans().stream().mapToLong(b -> b.getCollectionCount())
+                .sum();
 
         long gcCollections = gcCountAfter - gcCountBefore;
         System.out.println("GC collections during 10M operations: " + gcCollections);

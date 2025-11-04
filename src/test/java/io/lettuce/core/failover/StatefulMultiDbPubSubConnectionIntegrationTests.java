@@ -45,7 +45,8 @@ import io.lettuce.test.LettuceExtension;
 /**
  * Integration tests for {@link StatefulRedisMultiDbPubSubConnection} with pubsub functionality and database switching.
  *
- * @author Test Suite
+ * @author Ali Takavci
+ * @since 7.1
  */
 @ExtendWith(LettuceExtension.class)
 @Tag(INTEGRATION_TEST)
@@ -313,6 +314,8 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
         // Publish on the NEW endpoint (secondDb) - should be received
         StatefulRedisMultiDbPubSubConnection<String, String> newPublisher = multiDbClient.connectPubSub();
         newPublisher.switchToDatabase(secondDb);
+
+        Thread.sleep(1000);
         newPublisher.sync().publish("isolationtest", "Message from new endpoint");
 
         // We should only receive the message from the new endpoint

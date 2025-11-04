@@ -7,22 +7,25 @@ import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbPubSubConnection;
 import io.lettuce.core.resource.ClientResources;
 
+/**
+ * @author Ali Takavci
+ * @since 7.1
+ */
 public interface MultiDbClient extends BaseClient {
 
-    public static MultiDbClient create() {
-        return new MultiDbClientImpl(null, null);
-    }
-
     public static MultiDbClient create(Collection<DatabaseConfig> databaseConfigs) {
-        return create(null, databaseConfigs);
+        if (databaseConfigs == null || databaseConfigs.isEmpty()) {
+            throw new IllegalArgumentException("Database configs must not be empty");
+        }
+        return new MultiDbClientImpl(databaseConfigs);
     }
 
     public static MultiDbClient create(ClientResources resources, Collection<DatabaseConfig> databaseConfigs) {
         if (resources == null) {
-            throw new IllegalArgumentException("resources must not be null");
+            throw new IllegalArgumentException("Client resources must not be null");
         }
         if (databaseConfigs == null || databaseConfigs.isEmpty()) {
-            throw new IllegalArgumentException("databaseConfigs must not be empty");
+            throw new IllegalArgumentException("Database configs must not be empty");
         }
         return new MultiDbClientImpl(resources, databaseConfigs);
     }
