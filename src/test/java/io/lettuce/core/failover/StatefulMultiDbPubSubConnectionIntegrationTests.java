@@ -310,6 +310,56 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
                     // Subscribe on first database
                     multiDbConn.sync().subscribe("isolationtest");
 
+                    // Switch to second database
+                    multiDbConn.switchToDatabase(secondDb);
+
+                    Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("isolationtest"));
+                    assertThat(conn2.sync().pubsubChannels()).contains("isolationtest");
+
+                    assertThat(conn1.sync().pubsubChannels()).doesNotContain("isolationtest");
+
+                    // Publish on the OLD endpoint (firstDb) - should NOT be received
+                    conn1.sync().publish("isolationtest", "Message from first db");
+
+                    conn2.sync().publish("isolationtest", "Message from second db");
+
+                    // We should only receive the message from the new endpoint
+                    String message = messages.poll(1, TimeUnit.SECONDS);
+                    assertEquals("Message from second db", message);
+
+                    // Verify no additional messages are received (old endpoint message should not arrive)
+                    String unexpectedMessage = messages.poll(500, TimeUnit.MILLISECONDS);
+                    assertThat(unexpectedMessage).isNull();
+                }
+            }
+        }
+    }
+
+    @Test
+    void shouldNotReceiveMessagesFromOldEndpointAfterSwitch2() throws Exception {
+        try (StatefulRedisMultiDbPubSubConnection<String, String> multiDbConn = multiDbClient.connectPubSub()) {
+
+            // Get the endpoints
+            RedisURI firstDb = multiDbConn.getCurrentEndpoint();
+            RedisURI secondDb = StreamSupport.stream(multiDbConn.getEndpoints().spliterator(), false)
+                    .filter(uri -> !uri.equals(firstDb)).findFirst().get();
+
+            BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
+            multiDbConn.addListener(new RedisPubSubAdapter<String, String>() {
+
+                @Override
+                public void message(String channel, String message) {
+                    messages.add(message);
+                }
+
+            });
+
+            try (StatefulRedisPubSubConnection<String, String> conn1 = RedisClient.create(firstDb).connectPubSub()) {
+                try (StatefulRedisPubSubConnection<String, String> conn2 = RedisClient.create(secondDb).connectPubSub()) {
+
+                    // Subscribe on first database
+                    multiDbConn.sync().subscribe("isolationtest");
+
                     conn1.sync().publish("isolationtest", "Initial message");
                     String message = messages.poll(1, TimeUnit.SECONDS);
                     assertEquals("Initial message", message);
