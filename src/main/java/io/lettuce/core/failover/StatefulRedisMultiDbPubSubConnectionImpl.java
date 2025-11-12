@@ -22,6 +22,7 @@ import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands;
 import io.lettuce.core.pubsub.api.reactive.RedisPubSubReactiveCommands;
 import io.lettuce.core.pubsub.api.sync.RedisPubSubCommands;
 import io.lettuce.core.resource.ClientResources;
+import io.netty.util.internal.logging.InternalLogger;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
@@ -31,6 +32,9 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 public class StatefulRedisMultiDbPubSubConnectionImpl<K, V>
         extends StatefulRedisMultiDbConnectionImpl<StatefulRedisPubSubConnection<K, V>, K, V>
         implements StatefulRedisMultiDbPubSubConnection<K, V> {
+
+    private static final InternalLogger logger = InternalLoggerFactory
+            .getInstance(StatefulRedisMultiDbPubSubConnectionImpl.class);
 
     private final Set<RedisPubSubListener<K, V>> pubSubListeners = ConcurrentHashMap.newKeySet();
 
@@ -121,10 +125,13 @@ public class StatefulRedisMultiDbPubSubConnectionImpl<K, V>
 
     private void moveSubscriptions(K[] channels, Function<K[], RedisFuture<Void>> subscribeFunc,
             Function<K[], RedisFuture<Void>> unsubscribeFunc) {
+
+        logger.info("Moving subscriptions for channels: {}", channels);
         // Re-subscribe to new endpoint
         RedisFuture<Void> subscribeFuture = subscribeFunc.apply(channels);
         handlePubSubCommandError(subscribeFuture, "Re-subscribe failed: ");
 
+        logger.info("Unsubscribing from old endpoint for channels: {}", channels);
         // Unsubscribe from old endpoint on best effort basis
         RedisFuture<Void> unsubscribeFuture = unsubscribeFunc.apply(channels);
         handlePubSubCommandError(unsubscribeFuture, "Unsubscribe from old endpoint failed (best effort): ");
