@@ -17,6 +17,15 @@ on:
   schedule:
     - cron: '0 1 * * *' # nightly build
   workflow_dispatch:
+    inputs:
+      filter_ut:
+        description: 'Unit test filter pattern (e.g., *MultiDbTest)'
+        required: false
+        type: string
+      filter_it:
+        description: 'Integration test filter pattern (e.g., *MultiDbIntegrationTest)'
+        required: false
+        type: string
 
 jobs:
   build:
@@ -67,6 +76,8 @@ jobs:
         env:
           JVM_OPTS: -Xmx3200m
           TERM: dumb
+          FILTER_UT: ${{ inputs.filter_ut }}
+          FILTER_IT: ${{ inputs.filter_it }}
       - name: Tear down Docker Compose environment
         run: |
           docker compose $COMPOSE_ENV_FILES -f src/test/resources/docker-env/docker-compose.yml down

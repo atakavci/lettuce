@@ -6,6 +6,19 @@ SUPPORTED_TEST_ENV_VERSIONS := 8.4 8.2 8.0 7.4 7.2
 DEFAULT_TEST_ENV_VERSION := 8.2
 REDIS_ENV_WORK_DIR := $(or ${REDIS_ENV_WORK_DIR},$(ROOT_DIR)/work)
 
+# Test filter variables
+ifdef FILTER_UT
+	FILTER_UT_ARG := -Dsurefire.failIfNoSpecifiedTests=false -Dtest=$(FILTER_UT)
+else
+	FILTER_UT_ARG :=
+endif
+
+ifdef FILTER_IT
+	FILTER_IT_ARG := -Dfailsafe.failIfNoSpecifiedTests=false -Dit.test=$(FILTER_IT)
+else
+	FILTER_IT_ARG :=
+endif
+
 start:
 	@if [ -z "$(version)" ]; then \
 		version=$(arg); \
@@ -32,10 +45,10 @@ start:
 
 
 test:
-	mvn -DskipITs=false clean compile verify -P$(PROFILE)
+	mvn -DskipITs=false clean compile verify -P$(PROFILE) $(FILTER_UT_ARG) $(FILTER_IT_ARG)
 
 test-coverage:
-	mvn -DskipITs=false clean compile verify jacoco:report -P$(PROFILE)
+	mvn -DskipITs=false clean compile verify jacoco:report -P$(PROFILE) $(FILTER_UT_ARG) $(FILTER_IT_ARG)
 
 stop:
 	docker compose --env-file src/test/resources/docker-env/.env -f src/test/resources/docker-env/docker-compose.yml down; \
