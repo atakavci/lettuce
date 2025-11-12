@@ -43,6 +43,7 @@ import io.lettuce.core.internal.LettuceFactories;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.test.LettuceExtension;
+import io.lettuce.test.Wait;
 
 /**
  * Integration tests for {@link StatefulRedisMultiDbPubSubConnection} with pubsub functionality and database switching.
@@ -313,7 +314,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
             try (StatefulRedisPubSubConnection<String, String> conn1 = RedisClient.create(firstDb).connectPubSub()) {
                 try (StatefulRedisPubSubConnection<String, String> conn2 = RedisClient.create(secondDb).connectPubSub()) {
 
-                    Thread.sleep(1000);
+                    Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("isolationTest"));
                     assertThat(conn2.sync().pubsubChannels()).contains("isolationtest");
 
                     assertThat(conn1.sync().pubsubChannels()).doesNotContain("isolationtest");

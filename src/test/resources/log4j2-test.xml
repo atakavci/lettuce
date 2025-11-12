@@ -24,6 +24,7 @@
         <Logger name="io.lettuce.core.protocol.ReconnectionHandler" level="INFO"/>
         <Logger name="io.lettuce.scenario" level="INFO"/>
         <Logger name="io.lettuce.test" level="INFO"/>
+        <Logger name="io.lettuce.core.failover" level="DEBUG"/>
         <Root level="FATAL">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="File"/>
