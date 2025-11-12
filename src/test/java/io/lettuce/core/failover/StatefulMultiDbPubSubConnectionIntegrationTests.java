@@ -288,8 +288,13 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
     @Test
     void shouldNotReceiveMessagesFromOldEndpointAfterSwitch() throws Exception {
         try (StatefulRedisMultiDbPubSubConnection<String, String> multiDbConn = multiDbClient.connectPubSub()) {
-            BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
 
+            // Get the endpoints
+            RedisURI firstDb = multiDbConn.getCurrentEndpoint();
+            RedisURI secondDb = StreamSupport.stream(multiDbConn.getEndpoints().spliterator(), false)
+                    .filter(uri -> !uri.equals(firstDb)).findFirst().get();
+
+            BlockingQueue<String> messages = LettuceFactories.newBlockingQueue();
             multiDbConn.addListener(new RedisPubSubAdapter<String, String>() {
 
                 @Override
@@ -299,32 +304,31 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
 
             });
 
-            // Get the endpoints
-            RedisURI firstDb = multiDbConn.getCurrentEndpoint();
-            RedisURI secondDb = StreamSupport.stream(multiDbConn.getEndpoints().spliterator(), false)
-                    .filter(uri -> !uri.equals(firstDb)).findFirst().get();
-
-            // Subscribe on first database
-            multiDbConn.sync().subscribe("isolationtest");
-
-            // Switch to second database
-            multiDbConn.switchToDatabase(secondDb);
-
-            // Publish on the OLD endpoint (firstDb) - should NOT be received
             try (StatefulRedisPubSubConnection<String, String> conn1 = RedisClient.create(firstDb).connectPubSub()) {
                 try (StatefulRedisPubSubConnection<String, String> conn2 = RedisClient.create(secondDb).connectPubSub()) {
 
-                    Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("isolationTest"));
+                    // Subscribe on first database
+                    multiDbConn.sync().subscribe("isolationtest");
+
+                    conn1.sync().publish("isolationtest", "Initial message");
+                    String message = messages.poll(1, TimeUnit.SECONDS);
+                    assertEquals("Initial message", message);
+
+                    // Switch to second database
+                    multiDbConn.switchToDatabase(secondDb);
+
+                    Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("isolationtest"));
                     assertThat(conn2.sync().pubsubChannels()).contains("isolationtest");
 
                     assertThat(conn1.sync().pubsubChannels()).doesNotContain("isolationtest");
 
+                    // Publish on the OLD endpoint (firstDb) - should NOT be received
                     conn1.sync().publish("isolationtest", "Message from first db");
 
                     conn2.sync().publish("isolationtest", "Message from second db");
 
                     // We should only receive the message from the new endpoint
-                    String message = messages.poll(1, TimeUnit.SECONDS);
+                    message = messages.poll(1, TimeUnit.SECONDS);
                     assertEquals("Message from second db", message);
 
                     // Verify no additional messages are received (old endpoint message should not arrive)
