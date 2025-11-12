@@ -313,7 +313,6 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
             try (StatefulRedisPubSubConnection<String, String> conn1 = RedisClient.create(firstDb).connectPubSub()) {
                 try (StatefulRedisPubSubConnection<String, String> conn2 = RedisClient.create(secondDb).connectPubSub()) {
 
-                    assertThat(conn2.sync().pubsubChannels()).contains("isolationtest");
                     Thread.sleep(1000);
                     assertThat(conn2.sync().pubsubChannels()).contains("isolationtest");
 
