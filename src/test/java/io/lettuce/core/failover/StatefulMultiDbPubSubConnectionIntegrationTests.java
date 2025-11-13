@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.StreamSupport;
 
 import javax.inject.Inject;
@@ -359,10 +360,17 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
 
                     // Subscribe on first database
                     multiDbConn.sync().subscribe("isolationtest");
-
-                    conn1.sync().publish("isolationtest", "Initial message");
-                    String message = messages.poll(1, TimeUnit.SECONDS);
-                    assertEquals("Initial message", message);
+                    Wait.untilTrue(() -> {
+                        AtomicInteger msgId = new AtomicInteger(0);
+                        try {
+                            String msg = "Initial message " + msgId.incrementAndGet();
+                            conn1.sync().publish("isolationtest", "Initial message");
+                            String received = messages.poll(1, TimeUnit.SECONDS);
+                            return msg.equals(received);
+                        } catch (InterruptedException e) {
+                        }
+                        return false;
+                    });
 
                     // Switch to second database
                     multiDbConn.switchToDatabase(secondDb);
@@ -378,7 +386,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
                     conn2.sync().publish("isolationtest", "Message from second db");
 
                     // We should only receive the message from the new endpoint
-                    message = messages.poll(1, TimeUnit.SECONDS);
+                    String message = messages.poll(1, TimeUnit.SECONDS);
                     assertEquals("Message from second db", message);
 
                     // Verify no additional messages are received (old endpoint message should not arrive)
