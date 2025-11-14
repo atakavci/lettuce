@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.StreamSupport;
 
 import javax.inject.Inject;
 
@@ -37,7 +36,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbPubSubConnection;
 import io.lettuce.core.internal.LettuceFactories;
@@ -187,14 +185,15 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
 
             // Subscribe on first database
             multiDbConn.sync().subscribe("channel1");
+            waitForSubscription(conn1, channels, "channel1");
             String channel = channels.take();
             assertEquals("channel1", channel);
 
             // Switch to second database
             multiDbConn.switchToDatabase(secondEndpoint);
 
-            // Verify subscription is re-established on second database
-            Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("channel1"));
+            waitForSubscription(conn2, channels, "channel1");
+
             assertThat(conn2.sync().pubsubChannels()).contains("channel1");
         }
     }
@@ -222,7 +221,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
             multiDbConn.switchToDatabase(secondEndpoint);
 
             // Verify subscription is established on second database
-            Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("switchchannel"));
+            waitForSubscription(conn2, messages, "switchchannel");
             assertThat(conn2.sync().pubsubChannels()).contains("switchchannel");
 
             // Publish from second database
@@ -263,7 +262,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
             multiDbConn.switchToDatabase(firstEndpoint);
 
             // Verify subscription on first database again
-            Wait.untilTrue(() -> conn1.sync().pubsubChannels().contains("multichannel"));
+            waitForSubscription(conn1, messages, "multichannel");
             assertThat(conn1.sync().pubsubChannels()).contains("multichannel");
 
             // Publish on first database
@@ -299,7 +298,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
             multiDbConn.switchToDatabase(secondEndpoint);
 
             // Verify subscription on second database
-            Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("listenertest"));
+            waitForSubscription(conn2, messages, "listenertest");
             assertThat(conn2.sync().pubsubChannels()).contains("listenertest");
 
             // Add another listener after switch
@@ -348,7 +347,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
             // Switch to second database
             multiDbConn.switchToDatabase(secondEndpoint);
 
-            Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("isolationtest"));
+            waitForSubscription(conn2, messages, "isolationtest");
             assertThat(conn2.sync().pubsubChannels()).contains("isolationtest");
 
             assertThat(conn1.sync().pubsubChannels()).doesNotContain("isolationtest");
@@ -391,7 +390,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
             multiDbConn.switchToDatabase(secondEndpoint);
 
             // Verify subscription is established on second database
-            Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("unsubtest"));
+            waitForSubscription(conn2, messages, "unsubtest");
             assertThat(conn2.sync().pubsubChannels()).contains("unsubtest");
 
             // Verify that the old endpoint no longer has the subscription
