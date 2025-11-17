@@ -166,7 +166,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
             } catch (InterruptedException e) {
             }
             return false;
-        });
+        }).waitOrTimeout();
     }
 
     @Test
