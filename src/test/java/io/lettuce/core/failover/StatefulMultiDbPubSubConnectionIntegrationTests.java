@@ -185,14 +185,14 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
 
             // Subscribe on first database
             multiDbConn.sync().subscribe("channel1");
-            waitForSubscription(conn1, channels, "channel1");
             String channel = channels.take();
             assertEquals("channel1", channel);
 
             // Switch to second database
             multiDbConn.switchToDatabase(secondEndpoint);
 
-            waitForSubscription(conn2, channels, "channel1");
+            // Verify subscription is re-established on second database
+            Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("channel1"));
 
             assertThat(conn2.sync().pubsubChannels()).contains("channel1");
         }
@@ -255,7 +255,7 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
             multiDbConn.switchToDatabase(secondEndpoint);
 
             // Verify subscription on second database
-            Wait.untilTrue(() -> conn2.sync().pubsubChannels().contains("multichannel"));
+            waitForSubscription(conn2, messages, "multichannel");
             assertThat(conn2.sync().pubsubChannels()).contains("multichannel");
 
             // Switch back to first database
