@@ -42,6 +42,7 @@ import io.lettuce.core.ConnectionEvents;
 import io.lettuce.core.RedisChannelWriter;
 import io.lettuce.core.RedisConnectionException;
 import io.lettuce.core.RedisException;
+import io.lettuce.core.annotations.Experimental;
 import io.lettuce.core.api.push.PushListener;
 import io.lettuce.core.internal.Futures;
 import io.lettuce.core.internal.LettuceAssert;
@@ -396,6 +397,7 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint, PushHandle
             // commands are ok to stay within the queue, reconnect will retrigger them
             channelFuture.addListener(RetryListener.newInstance(this, command));
         }
+        handleNewChannelFuture(channelFuture);
     }
 
     private void writeToChannelAndFlush(Channel channel, Collection<? extends RedisCommand<?, ?, ?>> commands) {
@@ -406,7 +408,9 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint, PushHandle
 
             // cancel on exceptions and remove from queue, because there is no housekeeping
             for (RedisCommand<?, ?, ?> command : commands) {
-                channelWrite(channel, command).addListener(AtMostOnceWriteListener.newInstance(this, command));
+                ChannelFuture channelFuture = channelWrite(channel, command)
+                        .addListener(AtMostOnceWriteListener.newInstance(this, command));
+                handleNewChannelFuture(channelFuture);
             }
         }
 
@@ -414,11 +418,17 @@ public class DefaultEndpoint implements RedisChannelWriter, Endpoint, PushHandle
 
             // commands are ok to stay within the queue, reconnect will retrigger them
             for (RedisCommand<?, ?, ?> command : commands) {
-                channelWrite(channel, command).addListener(RetryListener.newInstance(this, command));
+                ChannelFuture channelFuture = channelWrite(channel, command)
+                        .addListener(RetryListener.newInstance(this, command));
+                handleNewChannelFuture(channelFuture);
             }
         }
 
         channelFlush(channel);
+    }
+
+    @Experimental
+    protected void handleNewChannelFuture(ChannelFuture channelFuture) {
     }
 
     private void channelFlush(Channel channel) {
