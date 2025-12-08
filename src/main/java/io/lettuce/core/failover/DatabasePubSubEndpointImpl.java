@@ -8,6 +8,8 @@ import io.lettuce.core.protocol.CompleteableCommand;
 import io.lettuce.core.protocol.RedisCommand;
 import io.lettuce.core.pubsub.PubSubEndpoint;
 import io.lettuce.core.resource.ClientResources;
+import io.netty.channel.ChannelFuture;
+import io.netty.util.concurrent.Future;
 
 /**
  * Database PubSub endpoint implementation for multi-database failover with circuit breaker metrics tracking. Extends
@@ -106,6 +108,19 @@ class DatabasePubSubEndpointImpl<K, V> extends PubSubEndpoint<K, V> implements D
     @Override
     public List<RedisCommand<?, ?, ?>> drainCommands() {
         return super.drainCommands();
+    }
+
+    @Override
+    protected void handleNewChannelFuture(ChannelFuture channelFuture) {
+        if (circuitBreaker != null) {
+            channelFuture.addListener(this::listen);
+        }
+    }
+
+    private void listen(Future<?> future) {
+        if (!future.isSuccess()) {
+            circuitBreaker.recordResult(future.cause());
+        }
     }
 
 }
