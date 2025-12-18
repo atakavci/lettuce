@@ -8,11 +8,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.ClientOptions;
@@ -29,8 +30,8 @@ import io.lettuce.core.api.reactive.RedisReactiveCommands;
 import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
 import io.lettuce.core.codec.RedisCodec;
+import io.lettuce.core.failover.RedisDatabase.DatabasePredicates;
 import io.lettuce.core.failover.api.StatefulRedisMultiDbConnection;
-import io.lettuce.core.failover.health.HealthCheck;
 import io.lettuce.core.failover.health.HealthStatus;
 import io.lettuce.core.failover.health.HealthStatusChangeEvent;
 import io.lettuce.core.failover.health.HealthStatusManager;
@@ -85,6 +86,8 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
 
     private final Lock writeLock = multiDbLock.writeLock();
 
+    private final ClientResources clientResources;
+
     public StatefulRedisMultiDbConnectionImpl(Map<RedisURI, RedisDatabase<C>> connections, ClientResources resources,
             RedisCodec<K, V> codec, Supplier<JsonParser> parser, DatabaseConnectionFactory<C, K, V> connectionFactory,
             HealthStatusManager healthStatusManager) {
@@ -94,6 +97,7 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
         LettuceAssert.notNull(healthStatusManager, "healthStatusManager must not be null");
 
         this.databases = new ConcurrentHashMap<>(connections);
+        this.clientResources = resources;
         this.codec = codec;
         this.parser = parser;
         this.connectionFactory = connectionFactory;
@@ -106,6 +110,10 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
         // constructor called).
         // This is suboptimal and should be replaced with a logic that uses async connection creation and state management,
         // which safely starts with at least one healthy connection.
+
+        // TODO: It is error prone to leave the possibility of setting null as current connection.
+        // Either we should identify and wait for healthy connection right here or pass it from outside as already identified as
+        // healthy
         this.current = getNextHealthyDatabase(null);
 
         this.async = newRedisAsyncCommandsImpl();
@@ -114,8 +122,16 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
     }
 
     private void onCircuitBreakerStateChange(CircuitBreakerStateChangeEvent event) {
-        if (event.getCircuitBreaker() == current.getCircuitBreaker() && event.getNewState() == CircuitBreaker.State.OPEN) {
-            failoverFrom(current);
+        logger.debug("Circuit breaker status changed for {} from {} to {}", event.getCircuitBreaker().getEndpoint(),
+                event.getPreviousState(), event.getNewState());
+        RedisDatabase<C> database = databases.get(event.getCircuitBreaker().getEndpoint());
+        if (database == null) {
+            return;
+        }
+
+        if (event.getNewState() == CircuitBreaker.State.OPEN && isCurrent(database)) {
+            logger.debug("Circuit breaker for {} opened, failing over if current", database.getRedisURI());
+            failoverFrom(database);
         }
     }
 
@@ -129,7 +145,8 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
             return;
         }
 
-        if (isCurrent(database) && event.getNewStatus() == HealthStatus.UNHEALTHY) {
+        if (event.getNewStatus() == HealthStatus.UNHEALTHY && isCurrent(database)) {
+            logger.debug("Database {} is unhealthy, failing over if current", database.getRedisURI());
             failoverFrom(database);
         }
     }
@@ -139,13 +156,19 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
     }
 
     private void failoverFrom(RedisDatabase<C> fromDb) {
-        RedisDatabase<C> healthyDatabase = getNextHealthyDatabase(fromDb);
-        if (healthyDatabase != null) {
-            switchToDatabase(healthyDatabase.getRedisURI());
-        } else {
-            // No healthy database found, stay on the current one
-            // TODO: manage max attempts to failover
+        RedisDatabase<C> selectedDatabase = getNextHealthyDatabase(fromDb);
+        if (selectedDatabase != null) {
+            switchToDatabaseInternal(selectedDatabase.getRedisURI());
+            // check if we missed any events during the switch,
+            // if selected one is not healthy anymore, failover again
+            if (selectedDatabase.isHealthy()) {
+                return;
+            } else {
+                failoverFrom(selectedDatabase);
+            }
         }
+        // No healthy database found, stay on the current one
+        // TODO: manage max attempts to failover
     }
 
     private RedisDatabase<C> getNextHealthyDatabase(RedisDatabase<C> dbToExclude) {
@@ -156,28 +179,6 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
     static class DatabaseComparators {
 
         public static final Comparator<RedisDatabase<?>> byWeight = Comparator.comparingDouble(RedisDatabase::getWeight);
-
-    }
-
-    static class DatabasePredicates {
-
-        public static final Predicate<RedisDatabase<?>> isHealthCheckHealthy = db -> {
-            HealthCheck healthCheck = db.getHealthCheck();
-            // If no health check configured, assume healthy
-            if (healthCheck == null) {
-                return true;
-            }
-            return healthCheck.getStatus() == HealthStatus.HEALTHY;
-        };
-
-        public static final Predicate<RedisDatabase<?>> isCbClosed = db -> db.getCircuitBreaker()
-                .getCurrentState() == CircuitBreaker.State.CLOSED;
-
-        public static final Predicate<RedisDatabase<?>> isHealthyAndCbClosed = isHealthCheckHealthy.and(isCbClosed);
-
-        public static Predicate<RedisDatabase<?>> isNot(RedisDatabase<?> dbInstance) {
-            return db -> !db.equals(dbInstance);
-        }
 
     }
 
@@ -289,7 +290,7 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
 
     @Override
     public ClientResources getResources() {
-        return current.getConnection().getResources();
+        return clientResources;
     }
 
     @Override
@@ -335,11 +336,20 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
 
     @Override
     public Iterable<RedisURI> getEndpoints() {
-        return databases.keySet();
+        return databases.values().stream().map(RedisDatabase::getRedisURI).collect(Collectors.toList());
     }
 
     @Override
-    public void switchToDatabase(RedisURI redisURI) {
+    public void switchTo(RedisURI redisURI) {
+        if (switchToDatabaseInternal(redisURI)) {
+            if (!current.isHealthy()) {
+                failoverFrom(current);
+            }
+        }
+    }
+
+    boolean switchToDatabaseInternal(RedisURI redisURI) {
+        AtomicBoolean switched = new AtomicBoolean(false);
         doByExclusiveLock(() -> {
             RedisDatabase<C> fromDb = current;
             RedisDatabase<C> toDb = databases.get(redisURI);
@@ -347,6 +357,7 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
                 throw new UnsupportedOperationException(
                         "Unable to switch between endpoints - the driver was not able to locate the source or destination endpoint.");
             }
+            // Nothing to do, already on the right database
             if (fromDb.equals(toDb)) {
                 return;
             }
@@ -360,10 +371,12 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
                 fromDb.getConnection().removeListener(listener);
             });
             fromDb.getDatabaseEndpoint().handOverCommandQueue(toDb.getDatabaseEndpoint());
+            switched.set(true);
         });
+        return switched.get();
     }
 
-    protected void doBySharedLock(Runnable operation) {
+    void doBySharedLock(Runnable operation) {
         readLock.lock();
         try {
             operation.run();
@@ -372,7 +385,7 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
         }
     }
 
-    protected void doByExclusiveLock(Runnable operation) {
+    void doByExclusiveLock(Runnable operation) {
         writeLock.lock();
         try {
             operation.run();

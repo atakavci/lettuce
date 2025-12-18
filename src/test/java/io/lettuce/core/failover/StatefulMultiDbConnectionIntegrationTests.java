@@ -197,7 +197,7 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
         // Switch to second database
         RedisURI other = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
                 .filter(uri -> !uri.equals(connection.getCurrentEndpoint())).findFirst().get();
-        connection.switchToDatabase(other);
+        connection.switchTo(other);
 
         // Value should not exist in second database
         assertNull(connection.sync().get("switchKey"));
@@ -220,10 +220,10 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
         // Switch to second database
         RedisURI secondDb = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
                 .filter(uri -> !uri.equals(firstDb)).findFirst().get();
-        connection.switchToDatabase(secondDb);
+        connection.switchTo(secondDb);
 
         // Switch back to first database
-        connection.switchToDatabase(firstDb);
+        connection.switchTo(firstDb);
 
         // Original value should still exist
         assertEquals("persistValue", connection.sync().get("persistKey"));
@@ -242,7 +242,7 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
         // Switch to second database
         RedisURI other = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
                 .filter(uri -> !uri.equals(connection.getCurrentEndpoint())).findFirst().get();
-        connection.switchToDatabase(other);
+        connection.switchTo(other);
 
         // Set different value in second database
         RedisFuture<String> setFuture2 = connection.async().set("asyncSwitchKey", "asyncValue2");
@@ -268,16 +268,16 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
         assertEquals("value1", connection.sync().get("key"));
 
         // Switch to second
-        connection.switchToDatabase(secondDb);
+        connection.switchTo(secondDb);
         connection.sync().set("key", "value2");
         assertEquals("value2", connection.sync().get("key"));
 
         // Switch back to first
-        connection.switchToDatabase(firstDb);
+        connection.switchTo(firstDb);
         assertEquals("value1", connection.sync().get("key"));
 
         // Switch to second again
-        connection.switchToDatabase(secondDb);
+        connection.switchTo(secondDb);
         assertEquals("value2", connection.sync().get("key"));
 
         connection.close();
@@ -293,7 +293,7 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
         assertEquals("testValue", connection.sync().get("sameDbKey"));
 
         // Switch to the same database (should be a no-op)
-        connection.switchToDatabase(currentDb);
+        connection.switchTo(currentDb);
 
         // Verify we're still on the same database and value is intact
         assertEquals(currentDb, connection.getCurrentEndpoint());
@@ -416,7 +416,7 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
                 RedisURI endpoint = endpoints.get(i);
                 // Switch away from this endpoint before removing it
                 if (endpoint.equals(connection.getCurrentEndpoint())) {
-                    connection.switchToDatabase(endpoints.get(endpoints.size() - 1));
+                    connection.switchTo(endpoints.get(endpoints.size() - 1));
                 }
                 connection.removeDatabase(endpoint);
             }
@@ -445,7 +445,7 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
         connection.addDatabase(newUri, 1.0f);
 
         // Switch to it
-        connection.switchToDatabase(newUri);
+        connection.switchTo(newUri);
 
         // Verify it's now active
         assertThat(connection.getCurrentEndpoint()).isEqualTo(newUri);
@@ -478,7 +478,7 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
         RedisURI nonExistentUri = RedisURI.create("redis://localhost:9999");
 
         // Note: Current implementation throws UnsupportedOperationException for non-existent endpoints
-        assertThatThrownBy(() -> connection.switchToDatabase(nonExistentUri)).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> connection.switchTo(nonExistentUri)).isInstanceOf(UnsupportedOperationException.class);
 
         connection.close();
     }
@@ -527,7 +527,7 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
                             RedisURI other = StreamSupport.stream(connection.getEndpoints().spliterator(), false)
                                     .filter(u -> !u.equals(uri)).findFirst().orElse(null);
                             if (other != null) {
-                                connection.switchToDatabase(other);
+                                connection.switchTo(other);
                             }
                         }
                         connection.removeDatabase(uri);
@@ -605,7 +605,7 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
 
                 // Switch to the other endpoint
                 RedisURI newActive = initialActive.equals(uri1) ? uri2 : uri1;
-                connection.switchToDatabase(newActive);
+                connection.switchTo(newActive);
                 connection.removeDatabase(initialActive);
 
                 // Flush commands - they should now be sent to the new active endpoint

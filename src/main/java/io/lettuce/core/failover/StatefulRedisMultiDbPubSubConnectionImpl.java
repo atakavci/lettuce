@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -92,11 +93,14 @@ public class StatefulRedisMultiDbPubSubConnectionImpl<K, V>
     }
 
     @Override
-    public void switchToDatabase(RedisURI redisURI) {
-
+    boolean switchToDatabaseInternal(RedisURI redisURI) {
         RedisDatabase<StatefulRedisPubSubConnection<K, V>> fromDb = current;
+        AtomicBoolean switched = new AtomicBoolean(false);
         doByExclusiveLock(() -> {
-            super.switchToDatabase(redisURI);
+            switched.set(super.switchToDatabaseInternal(redisURI));
+            if (!switched.get()) {
+                return;
+            }
             pubSubListeners.forEach(listener -> {
                 current.getConnection().addListener(listener);
                 fromDb.getConnection().removeListener(listener);
@@ -104,6 +108,7 @@ public class StatefulRedisMultiDbPubSubConnectionImpl<K, V>
 
             moveSubscriptions(fromDb, current);
         });
+        return switched.get();
     }
 
     @SuppressWarnings("unchecked")
