@@ -11,11 +11,12 @@ import io.lettuce.core.resource.ClientResources;
 import io.netty.util.concurrent.EventExecutorGroup;
 
 /**
+ * Base interface that all client implementations to implement and expose publicly.
+ *
  * @author Ali Takavci
  * @since 7.4
  */
 @Experimental
-// This is same interface that AbstractRedisClient expose as public
 public interface BaseRedisClient extends AutoCloseable {
 
     /**

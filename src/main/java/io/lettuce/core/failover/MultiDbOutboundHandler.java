@@ -19,7 +19,6 @@ import io.netty.util.concurrent.GenericFutureListener;
  * @author Ali Takavci
  * @since 7.4
  */
-
 class MultiDbOutboundHandler extends ChannelOutboundHandlerAdapter {
 
     public final static String HANDLER_NAME = MultiDbOutboundHandler.class.getSimpleName() + "#0";
