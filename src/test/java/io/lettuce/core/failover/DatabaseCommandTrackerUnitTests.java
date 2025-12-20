@@ -287,7 +287,7 @@ class DatabaseCommandTrackerUnitTests {
 
             tracker.write(asyncCommand);
 
-            // Complete with non-timeout exception (should be tracked by MultiDbOutboundAdapter, not here)
+            // Complete with non-timeout exception (should be tracked by MultiDbOutboundHandler, not here)
             asyncCommand.completeExceptionally(new RuntimeException("Other error"));
 
             MetricsSnapshot snapshot = circuitBreaker.getSnapshot();
@@ -410,7 +410,7 @@ class DatabaseCommandTrackerUnitTests {
     class SuccessTrackingTests {
 
         @Test
-        @DisplayName("Should NOT record success via onComplete callback (handled by MultiDbOutboundAdapter)")
+        @DisplayName("Should NOT record success via onComplete callback (handled by MultiDbOutboundHandler)")
         void shouldNotRecordSuccessViaOnCompleteCallback() {
             circuitBreaker = new CircuitBreakerImpl(getCBConfig(50.0f, 100));
             tracker.bind(circuitBreaker);
@@ -427,7 +427,7 @@ class DatabaseCommandTrackerUnitTests {
 
             MetricsSnapshot snapshot = circuitBreaker.getSnapshot();
             // Success should NOT be recorded by DatabaseCommandTracker's onComplete callback
-            // It should be recorded by MultiDbOutboundAdapter
+            // It should be recorded by MultiDbOutboundHandler
             assertThat(snapshot.getSuccessCount()).isEqualTo(0);
         }
 

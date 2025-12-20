@@ -53,7 +53,7 @@ import io.netty.util.concurrent.Future;
  * @since 7.4
  */
 @Tag("unit")
-class MultiDbOutboundAdapterUnitTests {
+class MultiDbOutboundHandlerUnitTests {
 
     private MultiDbOutboundHandler adapter;
 
@@ -299,7 +299,7 @@ class MultiDbOutboundAdapterUnitTests {
             asyncCommand.completeExceptionally(new RedisCommandTimeoutException("Command timed out"));
 
             MetricsSnapshot snapshot = circuitBreaker.getSnapshot();
-            // Should NOT be recorded by MultiDbOutboundAdapter (filtered out)
+            // Should NOT be recorded by MultiDbOutboundHandler (filtered out)
             assertThat(snapshot.getFailureCount()).isEqualTo(0);
             assertThat(snapshot.getSuccessCount()).isEqualTo(0);
         }
