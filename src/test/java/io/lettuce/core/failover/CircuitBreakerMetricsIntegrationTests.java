@@ -169,7 +169,6 @@ class CircuitBreakerMetricsIntegrationTests extends MultiDbTestSupport {
 
     @Test
     void shouldExposeMetricsViaCircuitBreaker() {
-        ReflectionTestUtils.setField(MetricsFactory.class, "DEFAULT_CLOCK", new TestClock());
         StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
         RedisURI endpoint = connection.getCurrentEndpoint();
 
