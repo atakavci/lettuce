@@ -40,7 +40,7 @@ import io.lettuce.core.protocol.RedisCommand;
  * @author Tz Zhuo
  * @since 3.0
  */
-class FutureSyncInvocationHandler extends AbstractInvocationHandler {
+public class FutureSyncInvocationHandler extends AbstractInvocationHandler {
 
     private final StatefulConnection<?, ?> connection;
 
@@ -50,7 +50,7 @@ class FutureSyncInvocationHandler extends AbstractInvocationHandler {
 
     private final MethodTranslator translator;
 
-    FutureSyncInvocationHandler(StatefulConnection<?, ?> connection, Object asyncApi, Class<?>[] interfaces) {
+    public FutureSyncInvocationHandler(StatefulConnection<?, ?> connection, Object asyncApi, Class<?>[] interfaces) {
         this.connection = connection;
         this.timeoutProvider = new TimeoutProvider(() -> connection.getOptions().getTimeoutOptions(),
                 () -> connection.getTimeout().toNanos());
