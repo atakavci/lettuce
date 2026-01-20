@@ -394,6 +394,10 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
         for (DatabaseConfig config : sortedConfigs) {
             CompletableFuture<RedisDatabaseImpl<SC>> dbFuture = databaseFutures.get(config.getRedisURI());
+            if (dbFuture == null) {
+                logger.error("This should not happen. No database future for {}", config.getRedisURI());
+                throw new IllegalStateException("No database future for " + config.getRedisURI());
+            }
 
             // Check if the connection has failed (future completed exceptionally)
             if (dbFuture.isCompletedExceptionally()) {
@@ -412,6 +416,11 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             // At this point, the future is done and not exceptionally completed, so we can get the database
             RedisDatabaseImpl<SC> database = dbFuture.getNow(null);
 
+            if (database == null) {
+                logger.error("This should not happen. Database is null for {}", config.getRedisURI());
+                throw new IllegalStateException("Database is null for " + config.getRedisURI());
+            }
+
             // this means we have a connection for most weighted one but not yet received a health check result.
             // this is a bit awkward expression below; its purely due to NO_HEALTH_CHECK configuration results with UNKNOWN
             if (database.getHealthCheck() != null && database.getHealthCheckStatus() == HealthStatus.UNKNOWN) {
@@ -426,6 +435,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     return database;
                 }
             }
+            logger.debug("Database {} is not healthy, trying next", config.getRedisURI());
         }
         return null;
     }
