@@ -1015,6 +1015,7 @@
                 <configuration>
                     <excludes>
                         <exclude>**/Jfr*</exclude>
+                        <exclude>io/netty/**</exclude>
                     </excludes>
                 </configuration>
             </plugin>
