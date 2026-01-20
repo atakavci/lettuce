@@ -50,12 +50,6 @@ class MultiDbClientConnectAsyncIntegrationTests extends MultiDbTestSupport {
         super(client);
     }
 
-    @BeforeEach
-    void setUp() {
-        directClient1.connect().sync().flushall();
-        directClient2.connect().sync().flushall();
-    }
-
     @SuppressWarnings("rawtypes")
     @AfterEach
     void tearDown() {

@@ -29,17 +29,17 @@ public class MultiDbTestSupport extends TestSupport {
 
     protected final MultiDbClient multiDbClient;
 
-    protected final RedisClient directClient1;
+    protected volatile RedisClient directClient1;
 
-    protected final RedisClient directClient2;
+    protected volatile RedisClient directClient2;
 
-    protected final RedisClient directClient3;
+    protected volatile RedisClient directClient3;
 
-    protected RedisURI uri1;
+    protected final RedisURI uri1;
 
-    protected RedisURI uri2;
+    protected final RedisURI uri2;
 
-    protected RedisURI uri3;
+    protected final RedisURI uri3;
 
     public MultiDbTestSupport(MultiDbClient multiDbClient) {
         this.multiDbClient = multiDbClient;
@@ -47,14 +47,13 @@ public class MultiDbTestSupport extends TestSupport {
         this.uri1 = endpoints.next();
         this.uri2 = endpoints.next();
         this.uri3 = endpoints.next();
-
-        this.directClient1 = RedisClient.create(uri1);
-        this.directClient2 = RedisClient.create(uri2);
-        this.directClient3 = RedisClient.create(uri3);
     }
 
     @BeforeEach
     void setUpMultiDb() {
+        directClient1 = RedisClient.create(uri1);
+        directClient2 = RedisClient.create(uri2);
+        directClient3 = RedisClient.create(uri3);
         directClient1.connect().sync().flushall();
         directClient2.connect().sync().flushall();
         directClient3.connect().sync().flushall();
@@ -65,6 +64,9 @@ public class MultiDbTestSupport extends TestSupport {
         directClient1.shutdown();
         directClient2.shutdown();
         directClient3.shutdown();
+        directClient1 = null;
+        directClient2 = null;
+        directClient3 = null;
     }
 
     public static final RedisURI URI1 = RedisURI.create(TestSettings.host(), TestSettings.port(10));

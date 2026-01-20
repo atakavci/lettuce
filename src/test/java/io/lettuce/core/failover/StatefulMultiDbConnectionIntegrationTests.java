@@ -72,18 +72,6 @@ class StatefulMultiDbConnectionIntegrationTests extends MultiDbTestSupport {
         super(client);
     }
 
-    @BeforeEach
-    void setUp() {
-        directClient1.connect().sync().flushall();
-        directClient2.connect().sync().flushall();
-    }
-
-    @AfterEach
-    void tearDownAfter() {
-        directClient1.shutdown();
-        directClient2.shutdown();
-    }
-
     // ============ Basic Connection Tests ============
 
     @Test

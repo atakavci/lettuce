@@ -58,9 +58,9 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
 
     private final RedisURI secondEndpoint;
 
-    private final StatefulRedisPubSubConnection<String, String> conn1;
+    private StatefulRedisPubSubConnection<String, String> conn1;
 
-    private final StatefulRedisPubSubConnection<String, String> conn2;
+    private StatefulRedisPubSubConnection<String, String> conn2;
 
     private StatefulRedisMultiDbPubSubConnection<String, String> multiDbConn;
 
@@ -69,23 +69,19 @@ class StatefulMultiDbPubSubConnectionIntegrationTests extends MultiDbTestSupport
         super(client);
         this.firstEndpoint = multiDbClient.getRedisURIs().iterator().next();
         this.secondEndpoint = multiDbClient.getRedisURIs().stream().filter(uri -> !uri.equals(firstEndpoint)).findFirst().get();
-        this.conn1 = directClient1.connectPubSub();
-        this.conn2 = directClient2.connectPubSub();
     }
 
     @BeforeEach
     void setUp() {
         multiDbConn = multiDbClient.connectPubSub();
-        directClient1.connect().sync().flushall();
-        directClient2.connect().sync().flushall();
+        conn1 = directClient1.connectPubSub();
+        conn2 = directClient2.connectPubSub();
         waitForEndpoints(multiDbConn, 3, 2);
     }
 
     @AfterEach
     void tearDown() {
         multiDbConn.close();
-        directClient1.shutdown();
-        directClient2.shutdown();
     }
 
     // ============ Basic PubSub Connection Tests ============
