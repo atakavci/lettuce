@@ -170,8 +170,10 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
                 MC conn = null;
                 Exception capturedFailure = null;
-                RedisDatabaseImpl<SC> selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
+                RedisDatabaseImpl<SC> selected = null;
                 try {
+                    selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
+
                     if (selected != null) {
                         logger.warn("Selected {} as primary database", selected);
                         conn = buildConn(healthStatusManager, databases, databaseFutures, selected);
@@ -181,20 +183,25 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     logger.error("Failed to build connection for {}", selected, e);
                     capturedFailure = e;
                 } finally {
-                    // if we dont have the connection then its either
-                    // - no selected db yet
-                    // - or attempted to build connection but failed.
-                    // in both cases we need to check if all failed, and complete the future accordingly.
-                    if (conn == null) {
-                        logger.warn("Result for {} is {}-{}. Not able to determine initial database yet.", endpoint,
-                                healthStatus, throwable);
-                        // check if everything seems to be somehow failed at this point.
-                        if (checkIfAllFailed(healthStatusFutures)) {
-                            logger.error(
-                                    "All health checks completed and none of the databases are healthy. Failing the connection.");
-                            connectionFuture.completeExceptionally(capturedFailure != null ? capturedFailure
-                                    : new RedisConnectionException("No healthy database available !!"));
+                    try {
+                        // if we dont have the connection then its either
+                        // - no selected db yet
+                        // - or attempted to build connection but failed.
+                        // in both cases we need to check if all failed, and complete the future accordingly.
+                        if (conn == null) {
+                            logger.warn("Result for {} is {}-{}. Not able to determine initial database yet.", endpoint,
+                                    healthStatus, throwable);
+                            // check if everything seems to be somehow failed at this point.
+                            if (checkIfAllFailed(healthStatusFutures)) {
+                                logger.error(
+                                        "All health checks completed and none of the databases are healthy. Failing the connection.");
+                                connectionFuture.completeExceptionally(capturedFailure != null ? capturedFailure
+                                        : new RedisConnectionException("No healthy database available !!"));
+                            }
                         }
+                    } catch (Exception e) {
+                        logger.error("Failed to complete connection future", e);
+                        connectionFuture.completeExceptionally(e);
                     }
                 }
                 return null;
@@ -461,7 +468,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             // check if none of the databases are healthy, no need to wait more, just fail.
             boolean noneHealthy = healthStatusFutures.values().stream()
                     .filter(singleFuture -> !singleFuture.isCompletedExceptionally())
-                    .map(singleFuture -> singleFuture.getNow(null)).noneMatch(status -> status.isHealthy());
+                    .map(singleFuture -> singleFuture.getNow(HealthStatus.UNKNOWN)).noneMatch(status -> status.isHealthy());
 
             if (noneHealthy) {
                 // here it means we have all databases completed and all health checks completed,
