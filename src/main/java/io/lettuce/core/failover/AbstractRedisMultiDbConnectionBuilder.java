@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -57,6 +58,30 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
     protected final ClientResources resources;
 
     protected final RedisCodec<K, V> codec;
+
+    public final AtomicInteger metricDbFutures = new AtomicInteger(0);
+
+    public final AtomicInteger metricHealthCheckFutures = new AtomicInteger(0);
+
+    public final AtomicInteger metricHandledHealthCheckFutures = new AtomicInteger(0);
+
+    public final AtomicInteger metricCreatedDatabases = new AtomicInteger(0);
+
+    public final AtomicInteger metricBuiltConnections = new AtomicInteger(0);
+
+    public final AtomicInteger metricSelectedDatabases = new AtomicInteger(0);
+
+    public final AtomicInteger metricFindInitialDbCandidate = new AtomicInteger(0);
+
+    public final AtomicInteger metricCheckIfAllFailed = new AtomicInteger(0);
+
+    public String getMetrics() {
+        return "metricDbFutures=" + metricDbFutures.get() + ", metricHealthCheckFutures=" + metricHealthCheckFutures.get()
+                + ", metricHandledHealthCheckFutures=" + metricHandledHealthCheckFutures.get() + ", metricCreatedDatabases="
+                + metricCreatedDatabases.get() + ", metricBuiltConnections=" + metricBuiltConnections.get()
+                + ", metricSelectedDatabases=" + metricSelectedDatabases.get() + ", metricFindInitialDbCandidate="
+                + metricFindInitialDbCandidate.get() + ", metricCheckIfAllFailed=" + metricCheckIfAllFailed.get();
+    }
 
     /**
      * Creates a new {@link AbstractRedisMultiDbConnectionBuilder}.
@@ -122,10 +147,12 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
         // Create async database connections for all configured endpoints
         DatabaseFutureMap<SC> databaseFutures = createDatabaseFutures(databaseConfigs, databases, healthStatusManager);
+        metricDbFutures.set(databaseFutures.size());
 
         // Create a map of futures, one for each database's health status
         Map<RedisURI, CompletableFuture<HealthStatus>> healthStatusFutures = createHealthStatusFutures(databaseFutures,
                 healthStatusManager);
+        metricHealthCheckFutures.set(healthStatusFutures.size());
 
         // Build the final connection future
         CompletableFuture<MC> connectionFuture = buildFuture(databaseConfigs, healthStatusManager, databases, databaseFutures,
@@ -164,6 +191,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
         for (Map.Entry<RedisURI, CompletableFuture<HealthStatus>> healthStatusFuture : healthStatusFutures.entrySet()) {
             RedisURI endpoint = healthStatusFuture.getKey();
             healthStatusFuture.getValue().handle((healthStatus, throwable) -> {
+                metricHandledHealthCheckFutures.incrementAndGet();
 
                 logger.warn("Building future triggered by health status for {} completed with status: {} and throwable: {}",
                         endpoint, healthStatus, throwable);
@@ -173,12 +201,14 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                 RedisDatabaseImpl<SC> selected = null;
                 try {
                     selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
+                    metricSelectedDatabases.incrementAndGet();
 
                     if (selected != null) {
                         logger.warn("Selected {} as primary database", selected);
                         conn = buildConn(healthStatusManager, databases, databaseFutures, selected);
                         connectionFuture.complete(conn);
                     }
+
                 } catch (Exception e) {
                     logger.error("Failed to build connection for {}", selected, e);
                     capturedFailure = e;
@@ -227,6 +257,8 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             RedisDatabaseImpl<SC> selected) {
         DatabaseMap<SC> clone = new DatabaseMap<>(databases);
 
+        metricBuiltConnections.incrementAndGet();
+
         // Include futures for databases that are NOT yet in the clone map
         // These are the databases still being established asynchronously
         List<CompletableFuture<RedisDatabaseImpl<SC>>> remainingDbFutures;
@@ -259,6 +291,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             DatabaseConfig config = entry.getValue();
 
             databaseFutures.put(uri, createRedisDatabaseAsync(config, healthStatusManager).thenApply(db -> {
+                metricCreatedDatabases.incrementAndGet();
                 databases.put(uri, db);
                 return db;
             }));
@@ -399,6 +432,8 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
     RedisDatabaseImpl<SC> findInitialDbCandidate(List<DatabaseConfig> sortedConfigs, DatabaseFutureMap<SC> databaseFutures,
             AtomicReference<RedisDatabaseImpl<SC>> initialDb) {
 
+        metricFindInitialDbCandidate.incrementAndGet();
+
         for (DatabaseConfig config : sortedConfigs) {
             CompletableFuture<RedisDatabaseImpl<SC>> dbFuture = databaseFutures.get(config.getRedisURI());
             if (dbFuture == null) {
@@ -441,6 +476,9 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                 if (initialDb.compareAndSet(null, database)) {
                     return database;
                 }
+                // If compareAndSet failed, it means another handler already selected and built the connection.
+                // This handler should return null and do nothing.
+                return null;
             }
             logger.warn("Database {} is not healthy, trying next", config.getRedisURI());
         }
@@ -461,6 +499,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
      * @return {@code true} if all databases have completed health checks and none are healthy, {@code false} otherwise
      */
     boolean checkIfAllFailed(Map<RedisURI, CompletableFuture<HealthStatus>> healthStatusFutures) {
+        metricCheckIfAllFailed.incrementAndGet();
         // check if all health checks completed, if not lets wait more.
         boolean allHealthChecksCompleted = healthStatusFutures.values().stream().allMatch(CompletableFuture::isDone);
         if (allHealthChecksCompleted) {

@@ -164,7 +164,7 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
 
         public void proceedHangingConnections() {
             for (RedisURI uri : hangingFutures.keySet()) {
-                actualFuturesMap.get(uri).toCompletableFuture().whenCompleteAsync((c, e) -> {
+                actualFuturesMap.get(uri).toCompletableFuture().whenComplete((c, e) -> {
                     logger.info("Completing hanging future for " + uri + " with " + c + " and " + e);
                     if (c != null) {
                         hangingFutures.get(uri).complete(c);
@@ -308,8 +308,9 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
             } else {
                 logger.info("MDbFuture NOT completed in shouldWaitForHighestWeightedConnection");
             }
-            connection = future.toCompletableFuture().join();
-            logger.info("MDbFuture completed in shouldWaitForHighestWeightedConnection");
+            // connection = future.toCompletableFuture().join();
+            logger.info("builder metrics: " + testClient.getBuilder().getMetrics());
+            verifyMetrics(testClient.getBuilder(), 3);
             assertThat(connection).isNotNull();
             assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
         }
@@ -511,6 +512,14 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
     }
 
     // ============ Mixed State Tests ============
+    private void verifyMetrics(TestMultiDbAsyncConnectionBuilder builder, int metric) {
+        if (builder.metricBuiltConnections.get() < metric || builder.metricCreatedDatabases.get() < metric
+                || builder.metricDbFutures.get() < metric || builder.metricHealthCheckFutures.get() < metric
+                || builder.metricHandledHealthCheckFutures.get() < metric || builder.metricSelectedDatabases.get() < metric
+                || builder.metricFindInitialDbCandidate.get() < metric || builder.metricCheckIfAllFailed.get() < metric) {
+            throw new IllegalStateException("Not all metrics reached expected value of " + metric);
+        }
+    }
 
     @Nested
     @DisplayName("Mixed State Tests")
@@ -559,8 +568,10 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
 
             // Then: Future should now complete with REDIS_URI_1 (highest weight, now healthy)
             await().atMost(Durations.TEN_SECONDS).until(future::isDone);
-            connection = future.toCompletableFuture().join();
-            logger.info("MDbFuture completed in shouldWaitForHighestWeightBeforeFallback");
+            // connection = future.toCompletableFuture().join();
+            logger.info("builder metrics: " + testClient.getBuilder().getMetrics());
+            TestMultiDbAsyncConnectionBuilder builder = testClient.getBuilder();
+            verifyMetrics(builder, 3);
             assertThat(connection).isNotNull();
             assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
         }
