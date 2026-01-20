@@ -78,12 +78,14 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
 
     @AfterEach
     void tearDown() {
+        logger.info("tearDown MultiDbAsyncConnectionBuilderIntegrationTests");
         if (connection != null && connection.isOpen()) {
             connection.close();
         }
         if (client != null) {
             client.shutdown();
         }
+        logger.info("tearDown MultiDbAsyncConnectionBuilderIntegrationTests complete");
     }
 
     // ============ Helper Methods ============
@@ -164,7 +166,7 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
 
         public void proceedHangingConnections() {
             for (RedisURI uri : hangingFutures.keySet()) {
-                actualFuturesMap.get(uri).toCompletableFuture().whenComplete((c, e) -> {
+                actualFuturesMap.get(uri).toCompletableFuture().whenCompleteAsync((c, e) -> {
                     logger.info("Completing hanging future for " + uri + " with " + c + " and " + e);
                     if (c != null) {
                         hangingFutures.get(uri).complete(c);
@@ -576,6 +578,7 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                 TestMultiDbAsyncConnectionBuilder builder = testClient.getBuilder();
                 verifyMetrics(builder, 3);
             }
+            logger.info("End of shouldWaitForHighestWeightBeforeFallback");
             // assertThat(connection).isNotNull();
             // assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
         }
