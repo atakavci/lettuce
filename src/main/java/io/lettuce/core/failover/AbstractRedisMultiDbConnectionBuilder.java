@@ -419,9 +419,6 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             if (database.getHealthCheck() == null || database.getHealthCheckStatus().isHealthy()) {
                 if (initialDb.compareAndSet(null, database)) {
                     return database;
-                } else {
-                    // Another thread already selected a database, return it
-                    return initialDb.get();
                 }
             }
         }
