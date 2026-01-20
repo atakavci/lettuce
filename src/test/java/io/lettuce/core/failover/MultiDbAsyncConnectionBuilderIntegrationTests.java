@@ -81,9 +81,11 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
         logger.info("tearDown MultiDbAsyncConnectionBuilderIntegrationTests");
         if (connection != null && connection.isOpen()) {
             connection.close();
+            connection = null;
         }
         if (client != null) {
             client.shutdown();
+            client = null;
         }
         logger.info("tearDown MultiDbAsyncConnectionBuilderIntegrationTests complete");
     }
