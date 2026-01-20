@@ -161,8 +161,12 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
         AtomicReference<RedisDatabaseImpl<SC>> initialDb = new AtomicReference<>();
 
-        for (CompletableFuture<HealthStatus> healthStatusFuture : healthStatusFutures.values()) {
-            healthStatusFuture.handle((healthStatus, throwable) -> {
+        for (Map.Entry<RedisURI, CompletableFuture<HealthStatus>> healthStatusFuture : healthStatusFutures.entrySet()) {
+            RedisURI endpoint = healthStatusFuture.getKey();
+            healthStatusFuture.getValue().handle((healthStatus, throwable) -> {
+
+                logger.info("Health status for {} completed with status: {} and throwable: {}", endpoint, healthStatus,
+                        throwable);
 
                 MC conn = null;
                 Exception capturedFailure = null;
@@ -174,6 +178,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                         connectionFuture.complete(conn);
                     }
                 } catch (Exception e) {
+                    logger.error("Failed to build connection for {}", selected, e);
                     capturedFailure = e;
                 } finally {
                     // if we dont have the connection then its either
@@ -181,8 +186,12 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     // - or attempted to build connection but failed.
                     // in both cases we need to check if all failed, and complete the future accordingly.
                     if (conn == null) {
+                        logger.info("Result for {} is {}-{}. Not able to determine initial database yet.", endpoint,
+                                healthStatus, throwable);
                         // check if everything seems to be somehow failed at this point.
                         if (checkIfAllFailed(healthStatusFutures)) {
+                            logger.error(
+                                    "All health checks completed and none of the databases are healthy. Failing the connection.");
                             connectionFuture.completeExceptionally(capturedFailure != null ? capturedFailure
                                     : new RedisConnectionException("No healthy database available !!"));
                         }
@@ -302,6 +311,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     return database;
                 } catch (Exception e) {
                     // If database setup fails, close the connection
+                    logger.error("Failed to create database connection for {}: {}", uri, e.getMessage(), e);
                     connection.closeAsync();
                     throw e;
                 }
@@ -405,6 +415,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             // this means we have a connection for most weighted one but not yet received a health check result.
             // this is a bit awkward expression below; its purely due to NO_HEALTH_CHECK configuration results with UNKNOWN
             if (database.getHealthCheck() != null && database.getHealthCheckStatus() == HealthStatus.UNKNOWN) {
+                logger.debug("Health check for {} is still pending, waiting", config.getRedisURI());
                 return null;
             }
 
