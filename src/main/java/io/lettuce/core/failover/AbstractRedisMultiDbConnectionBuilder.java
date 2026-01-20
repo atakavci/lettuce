@@ -385,6 +385,12 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
         for (DatabaseConfig config : sortedConfigs) {
             CompletableFuture<RedisDatabaseImpl<SC>> dbFuture = databaseFutures.get(config.getRedisURI());
 
+            // Check if future exists
+            if (dbFuture == null) {
+                logger.warn("No database future found for {}", config.getRedisURI());
+                continue;
+            }
+
             // Check if the connection has failed (future completed exceptionally)
             if (dbFuture.isCompletedExceptionally()) {
                 // Connection failed - skip to next weighted endpoint
@@ -395,6 +401,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             // Check if database connection is not yet complete
             if (!dbFuture.isDone()) {
                 // Connection is still pending - wait for highest weighted to complete
+                logger.debug("Database connection for {} is still pending, waiting", config.getRedisURI());
                 return null;
             }
 
@@ -412,6 +419,9 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             if (database.getHealthCheck() == null || database.getHealthCheckStatus().isHealthy()) {
                 if (initialDb.compareAndSet(null, database)) {
                     return database;
+                } else {
+                    // Another thread already selected a database, return it
+                    return initialDb.get();
                 }
             }
         }
