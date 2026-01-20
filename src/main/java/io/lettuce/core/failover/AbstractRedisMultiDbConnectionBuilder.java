@@ -165,15 +165,15 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             RedisURI endpoint = healthStatusFuture.getKey();
             healthStatusFuture.getValue().handle((healthStatus, throwable) -> {
 
-                logger.info("Health status for {} completed with status: {} and throwable: {}", endpoint, healthStatus,
-                        throwable);
+                logger.warn("Building future triggered by health status for {} completed with status: {} and throwable: {}",
+                        endpoint, healthStatus, throwable);
 
                 MC conn = null;
                 Exception capturedFailure = null;
                 RedisDatabaseImpl<SC> selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
                 try {
                     if (selected != null) {
-                        logger.info("Selected {} as primary database", selected);
+                        logger.warn("Selected {} as primary database", selected);
                         conn = buildConn(healthStatusManager, databases, databaseFutures, selected);
                         connectionFuture.complete(conn);
                     }
@@ -186,7 +186,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     // - or attempted to build connection but failed.
                     // in both cases we need to check if all failed, and complete the future accordingly.
                     if (conn == null) {
-                        logger.info("Result for {} is {}-{}. Not able to determine initial database yet.", endpoint,
+                        logger.warn("Result for {} is {}-{}. Not able to determine initial database yet.", endpoint,
                                 healthStatus, throwable);
                         // check if everything seems to be somehow failed at this point.
                         if (checkIfAllFailed(healthStatusFutures)) {
@@ -355,7 +355,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             CompletableFuture<HealthStatus> healthCheckFuture = dbFuture.thenCompose(database -> {
                 // Check if health checks are enabled for this database
                 if (database.getHealthCheck() != null) {
-                    logger.info("Health checks enabled for {}, waiting for result", endpoint);
+                    logger.warn("Health checks enabled for {}, waiting for result", endpoint);
                     // Wait asynchronously for this database's health status to be determined
                     return statusTracker.waitForHealthStatusAsync(endpoint);
                 } else {
@@ -402,14 +402,14 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             // Check if the connection has failed (future completed exceptionally)
             if (dbFuture.isCompletedExceptionally()) {
                 // Connection failed - skip to next weighted endpoint
-                logger.debug("Skipping failed database connection for {}", config.getRedisURI());
+                logger.warn("Skipping failed database connection for {}", config.getRedisURI());
                 continue;
             }
 
             // Check if database connection is not yet complete
             if (!dbFuture.isDone()) {
                 // Connection is still pending - wait for highest weighted to complete
-                logger.debug("Database connection for {} is still pending, waiting", config.getRedisURI());
+                logger.warn("Database connection for {} is still pending, waiting", config.getRedisURI());
                 return null;
             }
 
@@ -424,7 +424,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             // this means we have a connection for most weighted one but not yet received a health check result.
             // this is a bit awkward expression below; its purely due to NO_HEALTH_CHECK configuration results with UNKNOWN
             if (database.getHealthCheck() != null && database.getHealthCheckStatus() == HealthStatus.UNKNOWN) {
-                logger.debug("Health check for {} is still pending, waiting", config.getRedisURI());
+                logger.warn("Health check for {} is still pending, waiting", config.getRedisURI());
                 return null;
             }
 
@@ -435,7 +435,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     return database;
                 }
             }
-            logger.debug("Database {} is not healthy, trying next", config.getRedisURI());
+            logger.warn("Database {} is not healthy, trying next", config.getRedisURI());
         }
         return null;
     }
