@@ -385,12 +385,6 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
         for (DatabaseConfig config : sortedConfigs) {
             CompletableFuture<RedisDatabaseImpl<SC>> dbFuture = databaseFutures.get(config.getRedisURI());
 
-            // Check if future exists
-            if (dbFuture == null) {
-                logger.warn("No database future found for {}", config.getRedisURI());
-                continue;
-            }
-
             // Check if the connection has failed (future completed exceptionally)
             if (dbFuture.isCompletedExceptionally()) {
                 // Connection failed - skip to next weighted endpoint
