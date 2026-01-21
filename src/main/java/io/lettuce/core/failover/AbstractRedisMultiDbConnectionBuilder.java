@@ -154,6 +154,14 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
     public AtomicInteger metricSelected = new AtomicInteger(0);
 
+    public AtomicInteger metricCandidateFound = new AtomicInteger(0);
+
+    public AtomicInteger metricCandidateSelected = new AtomicInteger(0);
+
+    public AtomicInteger metricCandidatePendingStatus = new AtomicInteger(0);
+
+    public AtomicInteger metricCandidateHasStatus = new AtomicInteger(0);
+
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractRedisMultiDbConnectionBuilder.class);
 
     /**
@@ -456,13 +464,17 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             // this means we have a connection for most weighted one but not yet received a health check result.
             // this is a bit awkward expression below; its purely due to NO_HEALTH_CHECK configuration results with UNKNOWN
             if (database.getHealthCheck() != null && database.getHealthCheckStatus() == HealthStatus.UNKNOWN) {
+                metricCandidatePendingStatus.incrementAndGet();
                 return null;
             }
 
+            metricCandidateHasStatus.incrementAndGet();
             // we have a connection and health check result where all prior(more weighted) databases are unhealthy.
             // So this one is the best bet we have so far.
             if (database.getHealthCheck() == null || database.getHealthCheckStatus().isHealthy()) {
+                metricCandidateFound.incrementAndGet();
                 if (initialDb.compareAndSet(null, database)) {
+                    metricCandidateSelected.incrementAndGet();
                     return database;
                 }
             }
