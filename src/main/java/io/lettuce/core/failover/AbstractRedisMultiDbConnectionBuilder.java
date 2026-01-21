@@ -140,6 +140,8 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
     public AtomicInteger metricHandledCompleted = new AtomicInteger(0);
 
+    private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractRedisMultiDbConnectionBuilder.class);
+
     /**
      * Builds the connection future that completes when an initial primary database is selected.
      * <p>
@@ -167,12 +169,20 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
         AtomicReference<RedisDatabaseImpl<SC>> initialDb = new AtomicReference<>();
 
-        for (CompletableFuture<HealthStatus> healthStatusFuture : healthStatusFutures.values()) {
+        for (Map.Entry<RedisURI, CompletableFuture<HealthStatus>> entry : healthStatusFutures.entrySet()) {
+            RedisURI endpoint = entry.getKey();
+            CompletableFuture<HealthStatus> healthStatusFuture = entry.getValue();
             healthStatusFuture.handle((healthStatus, throwable) -> {
                 metricHandled.incrementAndGet();
                 MC conn = null;
                 Exception capturedFailure = null;
+
                 RedisDatabaseImpl<SC> selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
+                if (!healthStatus.equals(databaseFutures.get(endpoint).getNow(null).getHealthCheckStatus())) {
+                    logger.error("Health status mismatch for {} expected: {} actual: {}", endpoint, healthStatus,
+                            databaseFutures.get(endpoint).getNow(null).getHealthCheckStatus());
+                }
+
                 try {
                     if (selected != null) {
                         // logger.info("Selected {} as primary database", selected);

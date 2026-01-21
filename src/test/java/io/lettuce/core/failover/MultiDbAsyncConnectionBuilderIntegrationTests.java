@@ -292,14 +292,14 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                     .connectAsync(StringCodec.UTF8);
 
             // Then: Future should NOT complete yet (highest weight is still hanging)
-            await().during(Durations.TWO_SECONDS).atMost(Duration.ofSeconds(3)).until(() -> !future.isDone());
+            await().atMost(Durations.TWO_SECONDS).atMost(Duration.ofSeconds(3)).until(() -> !future.isDone());
 
             // When: Complete the hanging connection
             testClient.getBuilder().proceedHangingConnections();
 
             // Then: Future should now complete with REDIS_URI_1 as the selected endpoint
             try {
-                await().during(Durations.TEN_SECONDS).until(future::isDone);
+                await().atMost(Durations.TEN_SECONDS).until(future::isDone);
             } catch (Exception e) {
                 log.error("metrics - handled: {} completed: {}", testClient.getBuilder().metricHandled.get(),
                         testClient.getBuilder().metricHandledCompleted.get());
