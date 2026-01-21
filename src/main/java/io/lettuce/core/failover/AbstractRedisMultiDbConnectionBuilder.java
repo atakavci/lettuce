@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -135,6 +136,10 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
         return connectionFuture;
     }
 
+    public AtomicInteger metricHandled = new AtomicInteger(0);
+
+    public AtomicInteger metricHandledCompleted = new AtomicInteger(0);
+
     /**
      * Builds the connection future that completes when an initial primary database is selected.
      * <p>
@@ -164,7 +169,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
         for (CompletableFuture<HealthStatus> healthStatusFuture : healthStatusFutures.values()) {
             healthStatusFuture.handle((healthStatus, throwable) -> {
-
+                metricHandled.incrementAndGet();
                 MC conn = null;
                 Exception capturedFailure = null;
                 RedisDatabaseImpl<SC> selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
@@ -189,7 +194,9 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                                         : new RedisConnectionException("No healthy database available !!"));
                             }
                         }
+                        metricHandledCompleted.incrementAndGet();
                     } catch (Exception e) {
+                        metricHandledCompleted.incrementAndGet();
                         connectionFuture.completeExceptionally(e);
                     }
                 }

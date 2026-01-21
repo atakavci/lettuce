@@ -61,6 +61,9 @@ import io.lettuce.test.settings.TestSettings;
 @DisplayName("MultiDb Async Connection Builder Integration Tests")
 class MultiDbAsyncConnectionBuilderIntegrationTests {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory
+            .getLogger(MultiDbAsyncConnectionBuilderIntegrationTests.class);
+
     private static final RedisURI REDIS_URI_1 = RedisURI.create(TestSettings.host(), TestSettings.port(10));
 
     private static final RedisURI REDIS_URI_2 = RedisURI.create(TestSettings.host(), TestSettings.port(11));
@@ -295,8 +298,16 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
             testClient.getBuilder().proceedHangingConnections();
 
             // Then: Future should now complete with REDIS_URI_1 as the selected endpoint
-            await().atMost(Durations.TEN_SECONDS).until(future::isDone);
-            connection = future.toCompletableFuture().join();
+            try {
+                await().during(Durations.TEN_SECONDS).until(future::isDone);
+            } catch (Exception e) {
+                log.error("metrics - handled: {} completed: {}", testClient.getBuilder().metricHandled.get(),
+                        testClient.getBuilder().metricHandledCompleted.get());
+                String msg = String.format("metrics - handled: %d completed: %d", testClient.getBuilder().metricHandled.get(),
+                        testClient.getBuilder().metricHandledCompleted.get());
+                throw new IllegalStateException(msg, e);
+            }
+            // connection = future.toCompletableFuture().join();
             assertThat(connection).isNotNull();
             assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
         }
@@ -539,8 +550,16 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
             testClient.getBuilder().proceedHangingConnections();
 
             // Then: Future should now complete with REDIS_URI_1 (highest weight, now healthy)
-            await().atMost(Durations.TEN_SECONDS).until(future::isDone);
-            connection = future.toCompletableFuture().join();
+            try {
+                await().during(Durations.TEN_SECONDS).until(future::isDone);
+            } catch (Exception e) {
+                log.error("metrics - handled: {} completed: {}", testClient.getBuilder().metricHandled.get(),
+                        testClient.getBuilder().metricHandledCompleted.get());
+                String msg = String.format("metrics - handled: %d completed: %d", testClient.getBuilder().metricHandled.get(),
+                        testClient.getBuilder().metricHandledCompleted.get());
+                throw new IllegalStateException(msg, e);
+            }
+            // connection = future.toCompletableFuture().join();
             assertThat(connection).isNotNull();
             assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
         }
