@@ -319,7 +319,7 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                     verifyMetrics(testClient.getBuilder(), 3);
                 }
             } finally {
-                testClient.close();
+                // testClient.close();
             }
             // assertThat(connection).isNotNull();
             // assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
@@ -587,7 +587,7 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                 }
                 logger.info("End of shouldWaitForHighestWeightBeforeFallback");
             } finally {
-                testClient.close();
+                // testClient.close();
             }
             // assertThat(connection).isNotNull();
             // assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
