@@ -84,8 +84,8 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
             connection = null;
         }
         if (client != null) {
-            client.shutdown();
-            client = null;
+            // client.shutdown();
+            // client = null;
         }
         logger.info("tearDown MultiDbAsyncConnectionBuilderIntegrationTests complete");
     }
