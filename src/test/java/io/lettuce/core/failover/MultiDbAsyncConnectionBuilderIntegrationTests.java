@@ -293,29 +293,33 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
             Set<RedisURI> hangingUris = new HashSet<>();
             hangingUris.add(REDIS_URI_1);
             TestMultiDbClient testClient = new TestMultiDbClient(Arrays.asList(config1, config2, config3), hangingUris);
-            client = testClient;
+            // client = testClient;
 
-            // When: Connect asynchronously
-            MultiDbConnectionFuture<StatefulRedisMultiDbConnection<String, String>> future = client
-                    .connectAsync(StringCodec.UTF8);
+            try {
+                // When: Connect asynchronously
+                MultiDbConnectionFuture<StatefulRedisMultiDbConnection<String, String>> future = client
+                        .connectAsync(StringCodec.UTF8);
 
-            // Then: Future should NOT complete yet (highest weight is still hanging)
-            await().during(Durations.TWO_SECONDS).atMost(Duration.ofSeconds(3)).until(() -> !future.isDone());
+                // Then: Future should NOT complete yet (highest weight is still hanging)
+                await().during(Durations.TWO_SECONDS).atMost(Duration.ofSeconds(3)).until(() -> !future.isDone());
 
-            // When: Complete the hanging connection
-            testClient.getBuilder().proceedHangingConnections();
+                // When: Complete the hanging connection
+                testClient.getBuilder().proceedHangingConnections();
 
-            // Then: Future should now complete with REDIS_URI_1 as the selected endpoint
-            await().atMost(Durations.TEN_SECONDS).until(future::isDone);
-            if (future.isDone()) {
-                logger.info("MDbFuture completed in shouldWaitForHighestWeightedConnection");
-            } else {
-                logger.info("MDbFuture NOT completed in shouldWaitForHighestWeightedConnection");
-            }
-            // connection = future.toCompletableFuture().join();
-            if (!future.isDone()) {
-                logger.info("builder metrics: " + testClient.getBuilder().getMetrics());
-                verifyMetrics(testClient.getBuilder(), 3);
+                // Then: Future should now complete with REDIS_URI_1 as the selected endpoint
+                await().atMost(Durations.TEN_SECONDS).until(future::isDone);
+                if (future.isDone()) {
+                    logger.info("MDbFuture completed in shouldWaitForHighestWeightedConnection");
+                } else {
+                    logger.info("MDbFuture NOT completed in shouldWaitForHighestWeightedConnection");
+                }
+                // connection = future.toCompletableFuture().join();
+                if (!future.isDone()) {
+                    logger.info("builder metrics: " + testClient.getBuilder().getMetrics());
+                    verifyMetrics(testClient.getBuilder(), 3);
+                }
+            } finally {
+                testClient.close();
             }
             // assertThat(connection).isNotNull();
             // assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
@@ -554,33 +558,37 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
             Set<RedisURI> hangingUris = new HashSet<>();
             hangingUris.add(REDIS_URI_1);
             TestMultiDbClient testClient = new TestMultiDbClient(Arrays.asList(config1, config2, config3), hangingUris);
-            client = testClient;
 
-            // When: Connect asynchronously - should NOT complete yet
-            MultiDbConnectionFuture<StatefulRedisMultiDbConnection<String, String>> future = client
-                    .connectAsync(StringCodec.UTF8);
+            try {
 
-            // Then: Future should not complete even though REDIS_URI_3 is ready
-            // because we're waiting for highest weight (REDIS_URI_1) to conclude
-            await().during(Durations.TWO_SECONDS).atMost(Duration.ofSeconds(3)).until(() -> !future.isDone());
+                // When: Connect asynchronously - should NOT complete yet
+                MultiDbConnectionFuture<StatefulRedisMultiDbConnection<String, String>> future = client
+                        .connectAsync(StringCodec.UTF8);
 
-            if (future.isDone()) {
-                logger.info("MDbFuture completed in shouldWaitForHighestWeightBeforeFallback");
-            } else {
-                logger.info("MDbFuture NOT completed in shouldWaitForHighestWeightBeforeFallback");
+                // Then: Future should not complete even though REDIS_URI_3 is ready
+                // because we're waiting for highest weight (REDIS_URI_1) to conclude
+                await().during(Durations.TWO_SECONDS).atMost(Duration.ofSeconds(3)).until(() -> !future.isDone());
+
+                if (future.isDone()) {
+                    logger.info("MDbFuture completed in shouldWaitForHighestWeightBeforeFallback");
+                } else {
+                    logger.info("MDbFuture NOT completed in shouldWaitForHighestWeightBeforeFallback");
+                }
+                // When: Complete the hanging connection
+                testClient.getBuilder().proceedHangingConnections();
+
+                // Then: Future should now complete with REDIS_URI_1 (highest weight, now healthy)
+                await().atMost(Durations.TEN_SECONDS).until(future::isDone);
+                // connection = future.toCompletableFuture().join();
+                if (!future.isDone()) {
+                    logger.info("builder metrics: " + testClient.getBuilder().getMetrics());
+                    TestMultiDbAsyncConnectionBuilder builder = testClient.getBuilder();
+                    verifyMetrics(builder, 3);
+                }
+                logger.info("End of shouldWaitForHighestWeightBeforeFallback");
+            } finally {
+                testClient.close();
             }
-            // When: Complete the hanging connection
-            testClient.getBuilder().proceedHangingConnections();
-
-            // Then: Future should now complete with REDIS_URI_1 (highest weight, now healthy)
-            await().atMost(Durations.TEN_SECONDS).until(future::isDone);
-            // connection = future.toCompletableFuture().join();
-            if (!future.isDone()) {
-                logger.info("builder metrics: " + testClient.getBuilder().getMetrics());
-                TestMultiDbAsyncConnectionBuilder builder = testClient.getBuilder();
-                verifyMetrics(builder, 3);
-            }
-            logger.info("End of shouldWaitForHighestWeightBeforeFallback");
             // assertThat(connection).isNotNull();
             // assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
         }
