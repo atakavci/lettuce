@@ -292,7 +292,7 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                     .connectAsync(StringCodec.UTF8);
 
             // Then: Future should NOT complete yet (highest weight is still hanging)
-            await().atMost(Durations.TWO_SECONDS).atMost(Duration.ofSeconds(3)).until(() -> !future.isDone());
+            await().during(Durations.TWO_SECONDS).atMost(Duration.ofSeconds(3)).until(() -> !future.isDone());
 
             // When: Complete the hanging connection
             testClient.getBuilder().proceedHangingConnections();
@@ -301,13 +301,19 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
             try {
                 await().atMost(Durations.TEN_SECONDS).until(future::isDone);
             } catch (Exception e) {
-                log.error("metrics - handled: {} completed: {}", testClient.getBuilder().metricHandled.get(),
-                        testClient.getBuilder().metricHandledCompleted.get());
-                String msg = String.format("metrics - handled: %d completed: %d", testClient.getBuilder().metricHandled.get(),
-                        testClient.getBuilder().metricHandledCompleted.get());
+                String msg = String.format(
+                        "metrics - handled: %d completed: %d allChecksCompleted: %d checkIfAllFailed: %d beforeCompleteExceptionally: %d afterCompleteExceptionally: %d allChecksNotCompleted: %d captureFailure: %d selected: %d",
+                        testClient.getBuilder().metricHandled.get(), testClient.getBuilder().metricHandledCompleted.get(),
+                        testClient.getBuilder().metricAllChecksCompleted.get(),
+                        testClient.getBuilder().metricCheckIfAllFailed.get(),
+                        testClient.getBuilder().metricBeforeCompleteExceptionally.get(),
+                        testClient.getBuilder().metricAfterCompleteExceptionally.get(),
+                        testClient.getBuilder().metricAllChecksNotCompleted.get(),
+                        testClient.getBuilder().metricCaptureFailure.get(), testClient.getBuilder().metricSelected.get());
+                log.error(msg);
                 throw new IllegalStateException(msg, e);
             }
-            // connection = future.toCompletableFuture().join();
+            connection = future.toCompletableFuture().join();
             assertThat(connection).isNotNull();
             assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
         }
@@ -551,15 +557,21 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
 
             // Then: Future should now complete with REDIS_URI_1 (highest weight, now healthy)
             try {
-                await().during(Durations.TEN_SECONDS).until(future::isDone);
+                await().atMost(Durations.TEN_SECONDS).until(future::isDone);
             } catch (Exception e) {
-                log.error("metrics - handled: {} completed: {}", testClient.getBuilder().metricHandled.get(),
-                        testClient.getBuilder().metricHandledCompleted.get());
-                String msg = String.format("metrics - handled: %d completed: %d", testClient.getBuilder().metricHandled.get(),
-                        testClient.getBuilder().metricHandledCompleted.get());
+                String msg = String.format(
+                        "metrics - handled: %d completed: %d allChecksCompleted: %d checkIfAllFailed: %d beforeCompleteExceptionally: %d afterCompleteExceptionally: %d allChecksNotCompleted: %d captureFailure: %d selected: %d",
+                        testClient.getBuilder().metricHandled.get(), testClient.getBuilder().metricHandledCompleted.get(),
+                        testClient.getBuilder().metricAllChecksCompleted.get(),
+                        testClient.getBuilder().metricCheckIfAllFailed.get(),
+                        testClient.getBuilder().metricBeforeCompleteExceptionally.get(),
+                        testClient.getBuilder().metricAfterCompleteExceptionally.get(),
+                        testClient.getBuilder().metricAllChecksNotCompleted.get(),
+                        testClient.getBuilder().metricCaptureFailure.get(), testClient.getBuilder().metricSelected.get());
+                log.error(msg);
                 throw new IllegalStateException(msg, e);
             }
-            // connection = future.toCompletableFuture().join();
+            connection = future.toCompletableFuture().join();
             assertThat(connection).isNotNull();
             assertThat(connection.getCurrentEndpoint()).isEqualTo(REDIS_URI_1);
         }

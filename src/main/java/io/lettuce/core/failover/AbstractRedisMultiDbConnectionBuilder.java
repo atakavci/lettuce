@@ -140,6 +140,20 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
     public AtomicInteger metricHandledCompleted = new AtomicInteger(0);
 
+    public AtomicInteger metricCheckIfAllFailed = new AtomicInteger(0);
+
+    public AtomicInteger metricAllChecksCompleted = new AtomicInteger(0);
+
+    public AtomicInteger metricAllChecksNotCompleted = new AtomicInteger(0);
+
+    public AtomicInteger metricBeforeCompleteExceptionally = new AtomicInteger(0);
+
+    public AtomicInteger metricAfterCompleteExceptionally = new AtomicInteger(0);
+
+    public AtomicInteger metricCaptureFailure = new AtomicInteger(0);
+
+    public AtomicInteger metricSelected = new AtomicInteger(0);
+
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractRedisMultiDbConnectionBuilder.class);
 
     /**
@@ -177,20 +191,32 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                 MC conn = null;
                 Exception capturedFailure = null;
 
-                RedisDatabaseImpl<SC> selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
-                if (!healthStatus.equals(databaseFutures.get(endpoint).getNow(null).getHealthCheckStatus())) {
-                    logger.error("Health status mismatch for {} expected: {} actual: {}", endpoint, healthStatus,
-                            databaseFutures.get(endpoint).getNow(null).getHealthCheckStatus());
+                RedisDatabaseImpl<SC> selected = null;
+                try {
+                    selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
+                } catch (Exception e) {
+                    logger.error("Error while finding initial db candidate", e);
+                    connectionFuture.completeExceptionally(e);
+                }
+
+                if (healthStatus != null) {
+                    if (!healthStatus.equals(databaseFutures.get(endpoint).getNow(null).getHealthCheckStatus())) {
+                        String msg = String.format("Health status mismatch for %s expected: %s actual: %s", endpoint,
+                                healthStatus, databaseFutures.get(endpoint).getNow(null).getHealthCheckStatus());
+                        connectionFuture.completeExceptionally(new RedisConnectionException(msg));
+                    }
                 }
 
                 try {
                     if (selected != null) {
+                        metricSelected.incrementAndGet();
                         // logger.info("Selected {} as primary database", selected);
                         conn = buildConn(healthStatusManager, databases, databaseFutures, selected);
                         connectionFuture.complete(conn);
                     }
                 } catch (Exception e) {
                     capturedFailure = e;
+                    metricCaptureFailure.incrementAndGet();
                 } finally {
                     try {
                         // if we dont have the connection then its either
@@ -200,8 +226,12 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                         if (conn == null) {
                             // check if everything seems to be somehow failed at this point.
                             if (checkIfAllFailed(healthStatusFutures)) {
+                                metricBeforeCompleteExceptionally.incrementAndGet();
                                 connectionFuture.completeExceptionally(capturedFailure != null ? capturedFailure
                                         : new RedisConnectionException("No healthy database available !!"));
+                                metricAfterCompleteExceptionally.incrementAndGet();
+                            } else {
+                                metricAllChecksNotCompleted.incrementAndGet();
                             }
                         }
                         metricHandledCompleted.incrementAndGet();
@@ -407,17 +437,17 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
         for (DatabaseConfig config : sortedConfigs) {
             CompletableFuture<RedisDatabaseImpl<SC>> dbFuture = databaseFutures.get(config.getRedisURI());
 
+            // Check if database connection is not yet complete
+            if (!dbFuture.isDone()) {
+                // Connection is still pending - wait for highest weighted to complete
+                return null;
+            }
+
             // Check if the connection has failed (future completed exceptionally)
             if (dbFuture.isCompletedExceptionally()) {
                 // Connection failed - skip to next weighted endpoint
                 // logger.debug("Skipping failed database connection for {}", config.getRedisURI());
                 continue;
-            }
-
-            // Check if database connection is not yet complete
-            if (!dbFuture.isDone()) {
-                // Connection is still pending - wait for highest weighted to complete
-                return null;
             }
 
             // At this point, the future is done and not exceptionally completed, so we can get the database
@@ -454,9 +484,11 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
      * @return {@code true} if all databases have completed health checks and none are healthy, {@code false} otherwise
      */
     boolean checkIfAllFailed(Map<RedisURI, CompletableFuture<HealthStatus>> healthStatusFutures) {
+        metricCheckIfAllFailed.incrementAndGet();
         // check if all health checks completed, if not lets wait more.
         boolean allHealthChecksCompleted = healthStatusFutures.values().stream().allMatch(CompletableFuture::isDone);
         if (allHealthChecksCompleted) {
+            metricAllChecksCompleted.incrementAndGet();
 
             // check if none of the databases are healthy, no need to wait more, just fail.
             boolean noneHealthy = healthStatusFutures.values().stream()

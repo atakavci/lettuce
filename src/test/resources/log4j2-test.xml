@@ -19,6 +19,8 @@
         <Logger name="io.lettuce.examples" level="INFO"/>
         <Logger name="io.lettuce.scenario" level="INFO"/>
         <Logger name="io.lettuce.test" level="INFO"/>
+        <Logger name="io.lettuce.core.failover.MultiDbAsyncConnectionBuilderIntegrationTests" level="INFO"/>
+        <!-- <Logger name="io.lettuce.core.failover.AbstractRedisMultiDbConnectionBuilder" level="INFO"/> -->
         <Root level="FATAL">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="File"/>
