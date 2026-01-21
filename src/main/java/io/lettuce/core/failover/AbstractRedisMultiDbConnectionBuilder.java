@@ -50,7 +50,8 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
  */
 abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDbConnection, SC extends StatefulRedisConnection<K, V>, K, V> {
 
-    private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractRedisMultiDbConnectionBuilder.class);
+    // private static final InternalLogger logger =
+    // InternalLoggerFactory.getInstance(AbstractRedisMultiDbConnectionBuilder.class);
 
     protected final MultiDbClientImpl client;
 
@@ -169,23 +170,27 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                 RedisDatabaseImpl<SC> selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
                 try {
                     if (selected != null) {
-                        logger.info("Selected {} as primary database", selected);
+                        // logger.info("Selected {} as primary database", selected);
                         conn = buildConn(healthStatusManager, databases, databaseFutures, selected);
                         connectionFuture.complete(conn);
                     }
                 } catch (Exception e) {
                     capturedFailure = e;
                 } finally {
-                    // if we dont have the connection then its either
-                    // - no selected db yet
-                    // - or attempted to build connection but failed.
-                    // in both cases we need to check if all failed, and complete the future accordingly.
-                    if (conn == null) {
-                        // check if everything seems to be somehow failed at this point.
-                        if (checkIfAllFailed(healthStatusFutures)) {
-                            connectionFuture.completeExceptionally(capturedFailure != null ? capturedFailure
-                                    : new RedisConnectionException("No healthy database available !!"));
+                    try {
+                        // if we dont have the connection then its either
+                        // - no selected db yet
+                        // - or attempted to build connection but failed.
+                        // in both cases we need to check if all failed, and complete the future accordingly.
+                        if (conn == null) {
+                            // check if everything seems to be somehow failed at this point.
+                            if (checkIfAllFailed(healthStatusFutures)) {
+                                connectionFuture.completeExceptionally(capturedFailure != null ? capturedFailure
+                                        : new RedisConnectionException("No healthy database available !!"));
+                            }
                         }
+                    } catch (Exception e) {
+                        connectionFuture.completeExceptionally(e);
                     }
                 }
                 return null;
@@ -295,10 +300,10 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
                     RedisDatabaseImpl<SC> database = new RedisDatabaseImpl<>(config, connection, databaseEndpoint,
                             circuitBreaker, healthCheck);
-                    if (logger.isInfoEnabled()) {
-                        logger.info("Created database: {} with CircuitBreaker {} and HealthCheck {}", database.getId(),
-                                circuitBreaker.getId(), healthCheck != null ? healthCheck.getEndpoint() : "N/A");
-                    }
+                    // if (logger.isInfoEnabled()) {
+                    // logger.info("Created database: {} with CircuitBreaker {} and HealthCheck {}", database.getId(),
+                    // circuitBreaker.getId(), healthCheck != null ? healthCheck.getEndpoint() : "N/A");
+                    // }
                     return database;
                 } catch (Exception e) {
                     // If database setup fails, close the connection
@@ -306,12 +311,12 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     throw e;
                 }
             }).exceptionally(throwable -> {
-                logger.error("Failed to create database connection for {}: {}", uri, throwable.getMessage(), throwable);
+                // logger.error("Failed to create database connection for {}: {}", uri, throwable.getMessage(), throwable);
                 throw new CompletionException(throwable);
             });
         } catch (Exception e) {
             client.resetOptions();
-            logger.error("Failed to initiate database connection for {}: {}", uri, e.getMessage(), e);
+            // logger.error("Failed to initiate database connection for {}: {}", uri, e.getMessage(), e);
             CompletableFuture<RedisDatabaseImpl<SC>> failedFuture = new CompletableFuture<>();
             failedFuture.completeExceptionally(e);
             return failedFuture;
@@ -345,12 +350,12 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             CompletableFuture<HealthStatus> healthCheckFuture = dbFuture.thenCompose(database -> {
                 // Check if health checks are enabled for this database
                 if (database.getHealthCheck() != null) {
-                    logger.info("Health checks enabled for {}, waiting for result", endpoint);
+                    // logger.info("Health checks enabled for {}, waiting for result", endpoint);
                     // Wait asynchronously for this database's health status to be determined
                     return statusTracker.waitForHealthStatusAsync(endpoint);
                 } else {
                     // No health check configured - assume healthy
-                    logger.info("No health check configured for database {}, defaulting to HEALTHY", endpoint);
+                    // logger.info("No health check configured for database {}, defaulting to HEALTHY", endpoint);
                     return CompletableFuture.completedFuture(HealthStatus.HEALTHY);
                 }
             });
@@ -388,7 +393,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             // Check if the connection has failed (future completed exceptionally)
             if (dbFuture.isCompletedExceptionally()) {
                 // Connection failed - skip to next weighted endpoint
-                logger.debug("Skipping failed database connection for {}", config.getRedisURI());
+                // logger.debug("Skipping failed database connection for {}", config.getRedisURI());
                 continue;
             }
 
