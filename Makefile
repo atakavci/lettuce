@@ -32,10 +32,20 @@ start:
 
 
 test:
-	mvn -DskipITs=false clean compile verify -P$(PROFILE)
+	@if [ -n "$(TEST_CLASSES)" ]; then \
+		test_arg="-Dit.test=$(TEST_CLASSES)"; \
+	else \
+		test_arg=""; \
+	fi; \
+	mvn -DskipITs=false clean compile verify -P$(PROFILE) $$test_arg
 
 test-coverage:
-	mvn -DskipITs=false clean compile verify jacoco:report -P$(PROFILE)
+	@if [ -n "$(TEST_CLASSES)" ]; then \
+		test_arg="-Dit.test=$(TEST_CLASSES)"; \
+	else \
+		test_arg=""; \
+	fi; \
+	mvn -DskipITs=false clean compile verify jacoco:report -P$(PROFILE) $$test_arg
 
 stop:
 	docker compose --env-file src/test/resources/docker-env/.env -f src/test/resources/docker-env/docker-compose.yml down; \
