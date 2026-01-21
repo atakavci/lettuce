@@ -17,6 +17,12 @@ on:
   schedule:
     - cron: '0 1 * * *' # nightly build
   workflow_dispatch:
+    inputs:
+      test_classes:
+        description: 'Test classes to run (comma-separated, e.g., MultiDbAsyncConnectionBuilderIntegrationTests ). Leave empty to run all tests.'
+        required: false
+        type: string
+        default: ''
 
 jobs:
   build:
@@ -63,7 +69,7 @@ jobs:
           export TEST_WORK_FOLDER=$REDIS_ENV_WORK_DIR
           echo $TEST_WORK_FOLDER
           ls -la $TEST_WORK_FOLDER
-          make test-coverage
+          make test-coverage TEST_CLASSES="${{ github.event.inputs.test_classes }}"
         env:
           JVM_OPTS: -Xmx3200m
           TERM: dumb
