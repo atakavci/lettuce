@@ -297,7 +297,7 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
 
             try {
                 // When: Connect asynchronously
-                MultiDbConnectionFuture<StatefulRedisMultiDbConnection<String, String>> future = client
+                MultiDbConnectionFuture<StatefulRedisMultiDbConnection<String, String>> future = testClient
                         .connectAsync(StringCodec.UTF8);
 
                 // Then: Future should NOT complete yet (highest weight is still hanging)
@@ -562,7 +562,7 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
             try {
 
                 // When: Connect asynchronously - should NOT complete yet
-                MultiDbConnectionFuture<StatefulRedisMultiDbConnection<String, String>> future = client
+                MultiDbConnectionFuture<StatefulRedisMultiDbConnection<String, String>> future = testClient
                         .connectAsync(StringCodec.UTF8);
 
                 // Then: Future should not complete even though REDIS_URI_3 is ready
