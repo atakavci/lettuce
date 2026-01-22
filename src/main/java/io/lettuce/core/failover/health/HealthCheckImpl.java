@@ -7,11 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -116,6 +118,11 @@ public class HealthCheckImpl implements HealthCheck {
             return status;
         }
 
+        @Override
+        public String toString() {
+            return "HealthCheckResult{" + "timestamp=" + timestamp + ", status=" + status + '}';
+        }
+
     }
 
     private static final Logger log = LoggerFactory.getLogger(HealthCheckImpl.class);
@@ -137,6 +144,8 @@ public class HealthCheckImpl implements HealthCheck {
     private final List<HealthStatusListener> listeners = new CopyOnWriteArrayList<>();
 
     private final ScheduledExecutorService scheduler;
+
+    private Queue<Object> healthCheckQueue = new LinkedBlockingQueue<>();
 
     HealthCheckImpl(RedisURI endpoint, HealthCheckStrategy strategy) {
 
@@ -280,6 +289,7 @@ public class HealthCheckImpl implements HealthCheck {
         });
 
         if (wasUpdated.get() && oldResult.getStatus() != status) {
+            healthCheckQueue.add(newResult);
             if (log.isInfoEnabled()) {
                 log.info("Health status changed for {} from {} to {}", endpoint, oldResult.getStatus(), status);
             }
@@ -318,6 +328,11 @@ public class HealthCheckImpl implements HealthCheck {
     public void removeListener(HealthStatusListener listener) {
         LettuceAssert.notNull(listener, "HealthStatusListener must not be null");
         listeners.remove(listener);
+    }
+
+    @Override
+    public Queue<Object> getHealthCheckHistory() {
+        return healthCheckQueue;
     }
 
 }

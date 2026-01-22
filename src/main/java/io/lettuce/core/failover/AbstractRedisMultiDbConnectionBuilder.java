@@ -60,6 +60,9 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
     protected final RedisCodec<K, V> codec;
 
+    interface BuilderTracker {
+    }
+
     /**
      * Creates a new {@link AbstractRedisMultiDbConnectionBuilder}.
      *
@@ -71,6 +74,11 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
         this.resources = resources;
         this.client = client;
         this.codec = codec;
+    }
+
+    protected BuilderTracker getBuilderTracker() {
+        return new BuilderTracker() {
+        };
     }
 
     /**
@@ -162,6 +170,18 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
     public AtomicInteger metricCandidateHasStatus = new AtomicInteger(0);
 
+    public AtomicInteger metricHealthy = new AtomicInteger(0);
+
+    public AtomicInteger metricUnhealthy = new AtomicInteger(0);
+
+    public AtomicInteger metricDbHealthy = new AtomicInteger(0);
+
+    public AtomicInteger metricDbUnhealthy = new AtomicInteger(0);
+
+    public AtomicInteger metricDbUnknown = new AtomicInteger(0);
+
+    public AtomicInteger metricUnknown = new AtomicInteger(0);
+
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractRedisMultiDbConnectionBuilder.class);
 
     /**
@@ -200,6 +220,13 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                 Exception capturedFailure = null;
 
                 RedisDatabaseImpl<SC> selected = null;
+                if (healthStatus == HealthStatus.HEALTHY) {
+                    metricHealthy.incrementAndGet();
+                } else if (healthStatus == HealthStatus.UNHEALTHY) {
+                    metricUnhealthy.incrementAndGet();
+                } else {
+                    metricUnknown.incrementAndGet();
+                }
                 try {
                     selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
                 } catch (Exception e) {
@@ -207,12 +234,20 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     connectionFuture.completeExceptionally(e);
                 }
 
+                // Validation: Ensure health status from future matches the database's current health status
+                // Skip validation if no health check is configured (healthCheck is null)
                 if (healthStatus != null) {
-                    if (!healthStatus.equals(databaseFutures.get(endpoint).getNow(null).getHealthCheckStatus())) {
-                        String msg = String.format("Health status mismatch for %s expected: %s actual: %s", endpoint,
-                                healthStatus, databaseFutures.get(endpoint).getNow(null).getHealthCheckStatus());
-                        connectionFuture.completeExceptionally(new RedisConnectionException(msg));
+                    RedisDatabaseImpl<SC> database = databaseFutures.get(endpoint).getNow(null);
+                    if (database.getHealthCheck() != null) {
+                        HealthStatus actualStatus = database.getHealthCheckStatus();
+                        if (!healthStatus.equals(actualStatus)) {
+                            String msg = String.format("Health status mismatch for %s expected: %s actual: %s", endpoint,
+                                    healthStatus, actualStatus);
+                            connectionFuture.completeExceptionally(new RedisConnectionException(msg));
+                        }
                     }
+                    // If no health check configured, skip validation since database.getHealthCheckStatus() returns UNKNOWN
+                    // but the future completes with HEALTHY (assumed healthy when no health check)
                 }
 
                 try {
@@ -460,6 +495,16 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
             // At this point, the future is done and not exceptionally completed, so we can get the database
             RedisDatabaseImpl<SC> database = dbFuture.getNow(null);
+
+            if (database.getHealthCheck() != null) {
+                if (database.getHealthCheckStatus() == HealthStatus.HEALTHY) {
+                    metricDbHealthy.incrementAndGet();
+                } else if (database.getHealthCheckStatus() == HealthStatus.UNHEALTHY) {
+                    metricDbUnhealthy.incrementAndGet();
+                } else {
+                    metricDbUnknown.incrementAndGet();
+                }
+            }
 
             // this means we have a connection for most weighted one but not yet received a health check result.
             // this is a bit awkward expression below; its purely due to NO_HEALTH_CHECK configuration results with UNKNOWN

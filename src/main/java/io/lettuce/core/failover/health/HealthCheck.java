@@ -1,6 +1,8 @@
 
 package io.lettuce.core.failover.health;
 
+import java.util.Queue;
+
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.annotations.Experimental;
 
@@ -70,5 +72,7 @@ public interface HealthCheck {
      * @param listener the listener to remove, must not be {@code null}
      */
     void removeListener(HealthStatusListener listener);
+
+    Queue<Object> getHealthCheckHistory();
 
 }

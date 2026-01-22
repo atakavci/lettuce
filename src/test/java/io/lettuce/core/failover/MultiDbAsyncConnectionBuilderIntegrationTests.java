@@ -303,7 +303,8 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
             } catch (Exception e) {
                 String msg = String.format(
                         "metrics - handled: %d completed: %d allChecksCompleted: %d checkIfAllFailed: %d beforeCompleteExceptionally: %d afterCompleteExceptionally: %d allChecksNotCompleted: %d captureFailure: %d selected: %d"
-                                + "candidateFound: %d candidateSelected: %d candidatePendingStatus: %d candidateHasStatus: %d",
+                                + "candidateFound: %d candidateSelected: %d candidatePendingStatus: %d candidateHasStatus: %d"
+                                + " healthy: %d unhealthy: %d unknown: %d dbHealthy: %d dbUnhealthy: %d dbUnknown: %d",
                         testClient.getBuilder().metricHandled.get(), testClient.getBuilder().metricHandledCompleted.get(),
                         testClient.getBuilder().metricAllChecksCompleted.get(),
                         testClient.getBuilder().metricCheckIfAllFailed.get(),
@@ -314,7 +315,10 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                         testClient.getBuilder().metricCandidateFound.get(),
                         testClient.getBuilder().metricCandidateSelected.get(),
                         testClient.getBuilder().metricCandidatePendingStatus.get(),
-                        testClient.getBuilder().metricCandidateHasStatus.get());
+                        testClient.getBuilder().metricCandidateHasStatus.get(), testClient.getBuilder().metricHealthy.get(),
+                        testClient.getBuilder().metricUnhealthy.get(), testClient.getBuilder().metricUnknown.get(),
+                        testClient.getBuilder().metricDbHealthy.get(), testClient.getBuilder().metricDbUnhealthy.get(),
+                        testClient.getBuilder().metricDbUnknown.get());
                 log.error(msg);
                 throw new IllegalStateException(msg, e);
             }
@@ -565,7 +569,9 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                 await().atMost(Durations.TEN_SECONDS).until(future::isDone);
             } catch (Exception e) {
                 String msg = String.format(
-                        "metrics - handled: %d completed: %d allChecksCompleted: %d checkIfAllFailed: %d beforeCompleteExceptionally: %d afterCompleteExceptionally: %d allChecksNotCompleted: %d captureFailure: %d selected: %d candidateFound: %d candidateSelected: %d candidatePendingStatus: %d candidateHasStatus: %d",
+                        "metrics - handled: %d completed: %d allChecksCompleted: %d checkIfAllFailed: %d beforeCompleteExceptionally: %d afterCompleteExceptionally: %d allChecksNotCompleted: "
+                                + "%d captureFailure: %d selected: %d candidateFound: %d candidateSelected: %d candidatePendingStatus: %d candidateHasStatus: %d"
+                                + " healthy: %d unhealthy: %d unknown: %d dbHealthy: %d dbUnhealthy: %d dbUnknown: %d",
                         testClient.getBuilder().metricHandled.get(), testClient.getBuilder().metricHandledCompleted.get(),
                         testClient.getBuilder().metricAllChecksCompleted.get(),
                         testClient.getBuilder().metricCheckIfAllFailed.get(),
@@ -576,7 +582,11 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                         testClient.getBuilder().metricCandidateFound.get(),
                         testClient.getBuilder().metricCandidateSelected.get(),
                         testClient.getBuilder().metricCandidatePendingStatus.get(),
-                        testClient.getBuilder().metricCandidateHasStatus.get());
+                        testClient.getBuilder().metricCandidateHasStatus.get(), testClient.getBuilder().metricHealthy.get(),
+                        testClient.getBuilder().metricUnhealthy.get(), testClient.getBuilder().metricUnknown.get(),
+                        testClient.getBuilder().metricDbHealthy.get(), testClient.getBuilder().metricDbUnhealthy.get(),
+                        testClient.getBuilder().metricDbUnknown.get());
+
                 log.error(msg);
                 throw new IllegalStateException(msg, e);
             }
