@@ -533,6 +533,16 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
         return null;
     }
 
+    public AtomicInteger metricFinalNotExceptional = new AtomicInteger(0);
+
+    public AtomicInteger metricFinalExceptional = new AtomicInteger(0);
+
+    public AtomicInteger metricFinalResultedH = new AtomicInteger(0);
+
+    public AtomicInteger metricFinalResultedU = new AtomicInteger(0);
+
+    public AtomicInteger metricFinalResultedN = new AtomicInteger(0);
+
     /**
      * Checks if all databases have failed their health checks.
      * <p>
@@ -557,6 +567,29 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
             boolean noneHealthy = healthStatusFutures.values().stream()
                     .filter(singleFuture -> !singleFuture.isCompletedExceptionally())
                     .map(singleFuture -> singleFuture.getNow(null)).noneMatch(status -> status.isHealthy());
+
+            for (CompletableFuture<HealthStatus> future : healthStatusFutures.values()) {
+                if (future.isCompletedExceptionally()) {
+                    metricFinalExceptional.incrementAndGet();
+                } else {
+                    metricFinalNotExceptional.incrementAndGet();
+                    if (future.getNow(null) == HealthStatus.HEALTHY) {
+                        metricFinalResultedH.incrementAndGet();
+                    }
+                    if (future.getNow(null) == HealthStatus.UNKNOWN) {
+                        metricFinalResultedU.incrementAndGet();
+                    }
+                    if (future.getNow(null) == null) {
+                        metricFinalResultedN.incrementAndGet();
+                    }
+                }
+            }
+
+            // // check if none of the databases are healthy, no need to wait more, just fail.
+            // boolean noneHealthy = healthStatusFutures.values().stream()
+            // .filter(singleFuture -> !singleFuture.isCompletedExceptionally())
+            // .map(singleFuture -> singleFuture.getNow(HealthStatus.UNKNOWN))
+            // .noneMatch(status -> status == HealthStatus.HEALTHY);
 
             if (noneHealthy) {
                 // here it means we have all databases completed and all health checks completed,
