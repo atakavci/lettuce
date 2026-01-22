@@ -220,7 +220,6 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                 metricHandled.incrementAndGet();
                 MC conn = null;
                 Exception capturedFailure = null;
-                
 
                 RedisDatabaseImpl<SC> selected = null;
                 if (healthStatus == HealthStatus.HEALTHY) {
@@ -231,7 +230,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     metricUnknown.incrementAndGet();
                 }
 
-                if(throwable != null) {
+                if (throwable != null) {
                     metricsHealthStatusException.incrementAndGet();
                 }
                 try {
