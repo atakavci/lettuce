@@ -234,7 +234,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     metricsHealthStatusException.incrementAndGet();
                 }
                 try {
-                    selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
+                    selected = findInitialDbCandidate(sortedConfigs, databaseFutures, healthStatusFutures, initialDb);
                 } catch (Exception e) {
                     logger.error("Error while finding initial db candidate", e);
                     connectionFuture.completeExceptionally(e);
@@ -477,10 +477,12 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
      *
      * @param sortedConfigs list of database configurations sorted by weight (descending)
      * @param databaseFutures map of database creation futures
+     * @param healthStatusFutures
      * @param initialDb atomic reference for storing the selected database
      * @return the selected database, or {@code null} if no suitable candidate is available yet
      */
     RedisDatabaseImpl<SC> findInitialDbCandidate(List<DatabaseConfig> sortedConfigs, DatabaseFutureMap<SC> databaseFutures,
+            Map<RedisURI, CompletableFuture<HealthStatus>> healthStatusFutures,
             AtomicReference<RedisDatabaseImpl<SC>> initialDb) {
 
         for (DatabaseConfig config : sortedConfigs) {
@@ -499,36 +501,42 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                 continue;
             }
 
-            // At this point, the future is done and not exceptionally completed, so we can get the database
-            RedisDatabaseImpl<SC> database = dbFuture.getNow(null);
+            CompletableFuture<HealthStatus> healthStatusFurue = healthStatusFutures.get(config.getRedisURI());
 
-            if (database.getHealthCheck() != null) {
-                if (database.getHealthCheckStatus() == HealthStatus.HEALTHY) {
+            // Check if health check is not yet complete
+            if (!healthStatusFurue.isDone()) {
+                // Health check is still pending - wait for highest weighted to complete
+                return null;
+            }
+
+            // Check if the health check has failed (future completed exceptionally)
+            if (healthStatusFurue.isCompletedExceptionally()) {
+                // Health check failed - skip to next weighted endpoint
+                continue;
+            }
+
+            HealthStatus healthStatus = healthStatusFurue.getNow(HealthStatus.UNKNOWN);
+            if (healthStatus != null) {
+                if (healthStatus == HealthStatus.HEALTHY) {
                     metricDbHealthy.incrementAndGet();
-                } else if (database.getHealthCheckStatus() == HealthStatus.UNHEALTHY) {
+                } else if (healthStatus == HealthStatus.UNHEALTHY) {
                     metricDbUnhealthy.incrementAndGet();
-                } else if (database.getHealthCheckStatus() == HealthStatus.UNKNOWN) {
+                } else if (healthStatus == HealthStatus.UNKNOWN) {
                     metricDbUnknown.incrementAndGet();
                 }
             }
 
-            // this means we have a connection for most weighted one but not yet received a health check result.
-            // this is a bit awkward expression below; its purely due to NO_HEALTH_CHECK configuration results with UNKNOWN
-            if (database.getHealthCheck() != null && database.getHealthCheckStatus() == HealthStatus.UNKNOWN) {
-                metricCandidatePendingStatus.incrementAndGet();
-                return null;
-            }
-
-            metricCandidateHasStatus.incrementAndGet();
-            // we have a connection and health check result where all prior(more weighted) databases are unhealthy.
+            // we have a connection and health check result where all prior(more weighted) databases are unhealthy or failed
             // So this one is the best bet we have so far.
-            if (database.getHealthCheck() == null || database.getHealthCheckStatus().isHealthy()) {
+            if (healthStatus.isHealthy()) {
                 metricCandidateFound.incrementAndGet();
+                RedisDatabaseImpl<SC> database = dbFuture.getNow(null);
                 if (initialDb.compareAndSet(null, database)) {
                     metricCandidateSelected.incrementAndGet();
                     return database;
                 }
             }
+
         }
         return null;
     }
