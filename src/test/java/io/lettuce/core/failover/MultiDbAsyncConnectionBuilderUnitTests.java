@@ -374,8 +374,6 @@ class MultiDbAsyncConnectionBuilderUnitTests {
             RedisDatabaseImpl<StatefulRedisConnection<String, String>> db1 = createMockDatabase(config1, mockConnection1,
                     mockHealthCheck1);
 
-            when(mockHealthCheck1.getStatus()).thenReturn(HealthStatus.UNKNOWN);
-
             databaseFutures.put(uri1, CompletableFuture.completedFuture(db1));
 
             Map<RedisURI, CompletableFuture<HealthStatus>> healthStatusFutures = new HashMap<>();
@@ -397,9 +395,6 @@ class MultiDbAsyncConnectionBuilderUnitTests {
                     mockHealthCheck1);
             RedisDatabaseImpl<StatefulRedisConnection<String, String>> db2 = createMockDatabase(config2, mockConnection2,
                     mockHealthCheck2);
-
-            when(mockHealthCheck1.getStatus()).thenReturn(HealthStatus.UNHEALTHY);
-            when(mockHealthCheck2.getStatus()).thenReturn(HealthStatus.HEALTHY);
 
             databaseFutures.put(uri1, CompletableFuture.completedFuture(db1));
             databaseFutures.put(uri2, CompletableFuture.completedFuture(db2));

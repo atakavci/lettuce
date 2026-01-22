@@ -117,12 +117,6 @@ public class HealthCheckImpl implements HealthCheck {
         public HealthStatus getStatus() {
             return status;
         }
-
-        @Override
-        public String toString() {
-            return "HealthCheckResult{" + "timestamp=" + timestamp + ", status=" + status + '}';
-        }
-
     }
 
     private static final Logger log = LoggerFactory.getLogger(HealthCheckImpl.class);
@@ -328,11 +322,6 @@ public class HealthCheckImpl implements HealthCheck {
     public void removeListener(HealthStatusListener listener) {
         LettuceAssert.notNull(listener, "HealthStatusListener must not be null");
         listeners.remove(listener);
-    }
-
-    @Override
-    public Queue<Object> getHealthCheckHistory() {
-        return healthCheckQueue;
     }
 
 }
