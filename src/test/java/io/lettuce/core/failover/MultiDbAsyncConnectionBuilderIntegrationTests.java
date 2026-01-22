@@ -304,7 +304,7 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                 String msg = String.format(
                         "metrics - handled: %d completed: %d allChecksCompleted: %d checkIfAllFailed: %d beforeCompleteExceptionally: %d afterCompleteExceptionally: %d allChecksNotCompleted: %d captureFailure: %d selected: %d"
                                 + "candidateFound: %d candidateSelected: %d candidatePendingStatus: %d candidateHasStatus: %d"
-                                + " healthy: %d unhealthy: %d unknown: %d dbHealthy: %d dbUnhealthy: %d dbUnknown: %d",
+                                + " healthy: %d unhealthy: %d unknown: %d dbHealthy: %d dbUnhealthy: %d dbUnknown: %d ",
                         testClient.getBuilder().metricHandled.get(), testClient.getBuilder().metricHandledCompleted.get(),
                         testClient.getBuilder().metricAllChecksCompleted.get(),
                         testClient.getBuilder().metricCheckIfAllFailed.get(),
@@ -318,7 +318,8 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                         testClient.getBuilder().metricCandidateHasStatus.get(), testClient.getBuilder().metricHealthy.get(),
                         testClient.getBuilder().metricUnhealthy.get(), testClient.getBuilder().metricUnknown.get(),
                         testClient.getBuilder().metricDbHealthy.get(), testClient.getBuilder().metricDbUnhealthy.get(),
-                        testClient.getBuilder().metricDbUnknown.get());
+                        testClient.getBuilder().metricDbUnknown.get(),
+                        testClient.getBuilder().metricsHealthStatusException.get());
                 log.error(msg);
                 throw new IllegalStateException(msg, e);
             }
@@ -571,7 +572,7 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                 String msg = String.format(
                         "metrics - handled: %d completed: %d allChecksCompleted: %d checkIfAllFailed: %d beforeCompleteExceptionally: %d afterCompleteExceptionally: %d allChecksNotCompleted: "
                                 + "%d captureFailure: %d selected: %d candidateFound: %d candidateSelected: %d candidatePendingStatus: %d candidateHasStatus: %d"
-                                + " healthy: %d unhealthy: %d unknown: %d dbHealthy: %d dbUnhealthy: %d dbUnknown: %d",
+                                + " healthy: %d unhealthy: %d unknown: %d dbHealthy: %d dbUnhealthy: %d dbUnknown: %d healthStatusException: %d",
                         testClient.getBuilder().metricHandled.get(), testClient.getBuilder().metricHandledCompleted.get(),
                         testClient.getBuilder().metricAllChecksCompleted.get(),
                         testClient.getBuilder().metricCheckIfAllFailed.get(),
@@ -585,7 +586,8 @@ class MultiDbAsyncConnectionBuilderIntegrationTests {
                         testClient.getBuilder().metricCandidateHasStatus.get(), testClient.getBuilder().metricHealthy.get(),
                         testClient.getBuilder().metricUnhealthy.get(), testClient.getBuilder().metricUnknown.get(),
                         testClient.getBuilder().metricDbHealthy.get(), testClient.getBuilder().metricDbUnhealthy.get(),
-                        testClient.getBuilder().metricDbUnknown.get());
+                        testClient.getBuilder().metricDbUnknown.get(),
+                        testClient.getBuilder().metricsHealthStatusException.get());
 
                 log.error(msg);
                 throw new IllegalStateException(msg, e);

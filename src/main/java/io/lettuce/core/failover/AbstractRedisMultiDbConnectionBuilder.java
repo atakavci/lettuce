@@ -182,6 +182,8 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
 
     public AtomicInteger metricUnknown = new AtomicInteger(0);
 
+    public AtomicInteger metricsHealthStatusException = new AtomicInteger(0);
+
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractRedisMultiDbConnectionBuilder.class);
 
     /**
@@ -218,14 +220,19 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                 metricHandled.incrementAndGet();
                 MC conn = null;
                 Exception capturedFailure = null;
+                
 
                 RedisDatabaseImpl<SC> selected = null;
                 if (healthStatus == HealthStatus.HEALTHY) {
                     metricHealthy.incrementAndGet();
                 } else if (healthStatus == HealthStatus.UNHEALTHY) {
                     metricUnhealthy.incrementAndGet();
-                } else {
+                } else if (healthStatus == HealthStatus.UNKNOWN) {
                     metricUnknown.incrementAndGet();
+                }
+
+                if(throwable != null) {
+                    metricsHealthStatusException.incrementAndGet();
                 }
                 try {
                     selected = findInitialDbCandidate(sortedConfigs, databaseFutures, initialDb);
@@ -501,7 +508,7 @@ abstract class AbstractRedisMultiDbConnectionBuilder<MC extends BaseRedisMultiDb
                     metricDbHealthy.incrementAndGet();
                 } else if (database.getHealthCheckStatus() == HealthStatus.UNHEALTHY) {
                     metricDbUnhealthy.incrementAndGet();
-                } else {
+                } else if (database.getHealthCheckStatus() == HealthStatus.UNKNOWN) {
                     metricDbUnknown.incrementAndGet();
                 }
             }
