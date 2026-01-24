@@ -406,7 +406,7 @@ class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnection<K, V>
     protected void registerAsCloseable(final Collection<Closeable> registry) {
         // registry.add(this);
         // onCloseListeners.add(resource -> {
-            // registry.remove(resource);
+        // registry.remove(resource);
         // });
     }
 
