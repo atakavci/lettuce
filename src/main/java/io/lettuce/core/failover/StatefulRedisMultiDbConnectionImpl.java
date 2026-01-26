@@ -404,10 +404,10 @@ class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnection<K, V>
      * @param registry registry of closeables
      */
     protected void registerAsCloseable(final Collection<Closeable> registry) {
-        // registry.add(this);
-        // onCloseListeners.add(resource -> {
-        // registry.remove(resource);
-        // });
+        registry.add(this);
+        onCloseListeners.add(resource -> {
+        registry.remove(resource);
+        });
     }
 
     @Override
