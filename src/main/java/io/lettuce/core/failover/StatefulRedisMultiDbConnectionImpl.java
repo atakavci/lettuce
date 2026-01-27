@@ -433,9 +433,9 @@ class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnection<K, V>
 
         // return CompletableFuture.allOf(closeAllFuture, healthManagerFuture, deferredsFuture, onCloseListenersFuture);
 
-        return closeAllFuture.thenCompose(v -> deferredsFuture).whenComplete((v, t) -> {
+        return closeAllFuture.whenComplete((v, t) -> {
             healthStatusManager.close();
-        }).whenComplete((v, t) -> {
+        }).thenCompose(v -> deferredsFuture).whenComplete((v, t) -> {
             onCloseListeners.forEach(c -> c.accept(this));
         });
     }
