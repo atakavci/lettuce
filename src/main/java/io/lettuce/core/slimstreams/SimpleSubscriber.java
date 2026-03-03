@@ -85,8 +85,7 @@ public class SimpleSubscriber<T> implements Subscriber<T> {
     @Override
     public void onNext(T t) {
         if (t == null) {
-            onError(new NullPointerException("Element must not be null"));
-            return;
+            throw new NullPointerException("Element must not be null");
         }
 
         if (terminated.get()) {
@@ -110,7 +109,7 @@ public class SimpleSubscriber<T> implements Subscriber<T> {
     @Override
     public void onError(Throwable t) {
         if (t == null) {
-            t = new NullPointerException("Error must not be null");
+            throw new NullPointerException("Error must not be null");
         }
 
         if (!terminated.compareAndSet(false, true)) {

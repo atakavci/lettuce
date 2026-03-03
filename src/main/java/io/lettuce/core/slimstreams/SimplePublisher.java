@@ -171,12 +171,15 @@ public class SimplePublisher<T> implements Publisher<T> {
 
         private final AtomicBoolean draining = new AtomicBoolean(false);
 
+        private final AtomicBoolean terminated = new AtomicBoolean(false);
+
         SubscriberState(Subscriber<? super T> subscriber, SimplePublisher<T> publisher) {
             this.subscriber = subscriber;
             this.publisher = publisher;
-            this.subscription = new SimpleSubscription(n -> drain(), () -> {
-                // Cancellation handler - clear buffer on cancel
+            this.subscription = new SimpleSubscription(subscriber, n -> drain(), () -> {
+                // Cancellation handler - clear buffer and drop subscriber reference
                 publisher.buffer.clear();
+                publisher.subscriberState.compareAndSet(this, null);
             });
         }
 
@@ -192,9 +195,9 @@ public class SimplePublisher<T> implements Publisher<T> {
                         return;
                     }
 
-                    // Check for error
+                    // Check for error (only signal once)
                     Throwable error = publisher.error.get();
-                    if (error != null) {
+                    if (error != null && terminated.compareAndSet(false, true)) {
                         publisher.buffer.clear();
                         subscriber.onError(error);
                         return;
@@ -204,7 +207,7 @@ public class SimplePublisher<T> implements Publisher<T> {
                     boolean completed = publisher.completed.get();
                     boolean empty = publisher.buffer.isEmpty();
 
-                    if (completed && empty) {
+                    if (completed && empty && terminated.compareAndSet(false, true)) {
                         subscriber.onComplete();
                         return;
                     }
@@ -217,8 +220,10 @@ public class SimplePublisher<T> implements Publisher<T> {
                             try {
                                 subscriber.onNext(element);
                             } catch (Throwable t) {
-                                subscription.cancel();
-                                subscriber.onError(t);
+                                if (terminated.compareAndSet(false, true)) {
+                                    subscription.cancel();
+                                    subscriber.onError(t);
+                                }
                                 return;
                             }
                         }
@@ -232,7 +237,8 @@ public class SimplePublisher<T> implements Publisher<T> {
             }
 
             // Re-check in case new elements arrived while exiting
-            if (subscription.hasDemand() && !publisher.buffer.isEmpty() && !subscription.isCancelled()) {
+            // Only re-drain if not terminated and not cancelled
+            if (!terminated.get() && subscription.hasDemand() && !publisher.buffer.isEmpty() && !subscription.isCancelled()) {
                 drain();
             }
         }

@@ -3,6 +3,7 @@ package io.lettuce.core.slimstreams;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
 /**
@@ -25,6 +26,8 @@ public class SimpleSubscription implements Subscription {
 
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
 
+    private final Subscriber<?> subscriber;
+
     private final RequestHandler requestHandler;
 
     private final CancellationHandler cancellationHandler;
@@ -32,16 +35,22 @@ public class SimpleSubscription implements Subscription {
     /**
      * Creates a new {@link SimpleSubscription}.
      *
+     * @param subscriber the subscriber to signal errors to
      * @param requestHandler the handler to be called when demand is requested
      * @param cancellationHandler the handler to be called when subscription is cancelled
      */
-    public SimpleSubscription(RequestHandler requestHandler, CancellationHandler cancellationHandler) {
+    public SimpleSubscription(Subscriber<?> subscriber, RequestHandler requestHandler,
+            CancellationHandler cancellationHandler) {
+        if (subscriber == null) {
+            throw new NullPointerException("subscriber must not be null");
+        }
         if (requestHandler == null) {
             throw new NullPointerException("requestHandler must not be null");
         }
         if (cancellationHandler == null) {
             throw new NullPointerException("cancellationHandler must not be null");
         }
+        this.subscriber = subscriber;
         this.requestHandler = requestHandler;
         this.cancellationHandler = cancellationHandler;
     }
@@ -50,7 +59,7 @@ public class SimpleSubscription implements Subscription {
     public void request(long n) {
         if (n <= 0) {
             cancel();
-            requestHandler.onError(new IllegalArgumentException("§3.9: non-positive request signals are illegal"));
+            subscriber.onError(new IllegalArgumentException("§3.9: non-positive request signals are illegal"));
             return;
         }
 

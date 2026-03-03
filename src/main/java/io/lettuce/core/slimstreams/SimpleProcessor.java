@@ -97,8 +97,7 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
     @Override
     public void onNext(T t) {
         if (t == null) {
-            onError(new NullPointerException("Element must not be null"));
-            return;
+            throw new NullPointerException("Element must not be null");
         }
 
         if (terminated.get()) {
@@ -132,7 +131,7 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
     @Override
     public void onError(Throwable t) {
         if (t == null) {
-            t = new NullPointerException("Error must not be null");
+            throw new NullPointerException("Error must not be null");
         }
 
         if (!terminated.compareAndSet(false, true)) {
@@ -257,10 +256,12 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
 
         private final AtomicBoolean draining = new AtomicBoolean(false);
 
+        private final AtomicBoolean terminated = new AtomicBoolean(false);
+
         SubscriberState(Subscriber<? super R> subscriber, SimpleProcessor<?, R> processor) {
             this.subscriber = subscriber;
             this.processor = processor;
-            this.subscription = new SimpleSubscription(n -> {
+            this.subscription = new SimpleSubscription(subscriber, n -> {
                 drain();
                 // Request more from upstream when downstream requests
                 Subscription upstream = processor.upstreamSubscription.get();
@@ -268,8 +269,9 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
                     upstream.request(n);
                 }
             }, () -> {
-                // Cancellation handler
+                // Cancellation handler - clear buffer and drop subscriber reference
                 processor.buffer.clear();
+                processor.downstreamState.compareAndSet(this, null);
                 Subscription upstream = processor.upstreamSubscription.get();
                 if (upstream != null) {
                     upstream.cancel();
@@ -289,9 +291,9 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
                         return;
                     }
 
-                    // Check for error
+                    // Check for error (only signal once)
                     Throwable error = processor.error.get();
-                    if (error != null) {
+                    if (error != null && terminated.compareAndSet(false, true)) {
                         processor.buffer.clear();
                         subscriber.onError(error);
                         return;
@@ -301,7 +303,7 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
                     boolean completed = processor.completed.get();
                     boolean empty = processor.buffer.isEmpty();
 
-                    if (completed && empty) {
+                    if (completed && empty && terminated.compareAndSet(false, true)) {
                         subscriber.onComplete();
                         return;
                     }
@@ -314,8 +316,10 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
                             try {
                                 subscriber.onNext(element);
                             } catch (Throwable t) {
-                                subscription.cancel();
-                                subscriber.onError(t);
+                                if (terminated.compareAndSet(false, true)) {
+                                    subscription.cancel();
+                                    subscriber.onError(t);
+                                }
                                 return;
                             }
                         }
@@ -329,7 +333,8 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
             }
 
             // Re-check in case new elements arrived while exiting
-            if (subscription.hasDemand() && !processor.buffer.isEmpty() && !subscription.isCancelled()) {
+            // Only re-drain if not terminated and not cancelled
+            if (!terminated.get() && subscription.hasDemand() && !processor.buffer.isEmpty() && !subscription.isCancelled()) {
                 drain();
             }
         }
