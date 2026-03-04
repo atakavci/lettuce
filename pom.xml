@@ -916,7 +916,7 @@
                     <excludes>
                         <exclude>**/*Test</exclude>
                         <exclude>**/*IntegrationTests</exclude>
-                        <exclude>**/*Verification</exclude>
+                        <exclude>slimstreams/**</exclude>
                     </excludes>
                     <excludedGroups>integration</excludedGroups>
                 </configuration>

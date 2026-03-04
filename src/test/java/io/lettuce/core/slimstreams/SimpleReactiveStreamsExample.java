@@ -5,10 +5,6 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import io.lettuce.core.slimstreams.SimpleProcessor;
-import io.lettuce.core.slimstreams.SimplePublisher;
-import io.lettuce.core.slimstreams.SimpleSubscriber;
-
 /**
  * Example demonstrating the usage of the simple reactive-streams implementations.
  *

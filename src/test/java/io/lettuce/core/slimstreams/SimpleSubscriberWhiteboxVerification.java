@@ -5,8 +5,6 @@ import org.reactivestreams.tck.SubscriberWhiteboxVerification;
 import org.reactivestreams.tck.TestEnvironment;
 import org.testng.annotations.Test;
 
-import io.lettuce.core.slimstreams.SimpleSubscriber;
-
 /**
  * Reactive Streams TCK whitebox verification for {@link SimpleSubscriber}.
  *

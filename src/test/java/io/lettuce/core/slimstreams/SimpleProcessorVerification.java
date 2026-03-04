@@ -11,9 +11,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import io.lettuce.core.slimstreams.SimpleProcessor;
-import io.lettuce.core.slimstreams.SimplePublisher;
-
 /**
  * Reactive Streams TCK verification for {@link SimpleProcessor}.
  *

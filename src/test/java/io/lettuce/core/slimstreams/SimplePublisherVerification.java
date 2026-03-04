@@ -5,8 +5,6 @@ import org.reactivestreams.tck.PublisherVerification;
 import org.reactivestreams.tck.TestEnvironment;
 import org.testng.annotations.Test;
 
-import io.lettuce.core.slimstreams.SimplePublisher;
-
 /**
  * Reactive Streams TCK verification for {@link SimplePublisher}.
  *
