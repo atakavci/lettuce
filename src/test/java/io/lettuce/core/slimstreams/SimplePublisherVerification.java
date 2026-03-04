@@ -54,10 +54,4 @@ public class SimplePublisherVerification extends PublisherVerification<Long> {
         return publisher;
     }
 
-    // @Override
-    // public long maxElementsFromPublisher() {
-    // // With on-demand emission, we can handle Long.MAX_VALUE without OOM
-    // return Long.MAX_VALUE;
-    // }
-
 }
