@@ -25,9 +25,18 @@ public class SimplePublisherVerification extends PublisherVerification<Long> {
         Thread emitter = new Thread(() -> {
             try {
                 for (long i = 0; i < elements; i++) {
+                    // Emit with backpressure: wait if buffer is too large
+                    while (publisher.getBufferSize() > 1024) {
+                        if (Thread.interrupted()) {
+                            return;
+                        }
+                        Thread.sleep(1);
+                    }
                     publisher.emit(i);
                 }
                 publisher.complete();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
                 publisher.error(e);
             }
@@ -45,9 +54,10 @@ public class SimplePublisherVerification extends PublisherVerification<Long> {
         return publisher;
     }
 
-    @Override
-    public long maxElementsFromPublisher() {
-        return 1024;
-    }
+    // @Override
+    // public long maxElementsFromPublisher() {
+    // // With on-demand emission, we can handle Long.MAX_VALUE without OOM
+    // return Long.MAX_VALUE;
+    // }
 
 }

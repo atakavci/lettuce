@@ -66,9 +66,18 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
         executorService.execute(() -> {
             try {
                 for (long i = 0; i < elements; i++) {
+                    // Emit with backpressure: wait if buffer is too large
+                    while (publisher.getBufferSize() > 1024) {
+                        if (Thread.interrupted()) {
+                            return;
+                        }
+                        Thread.sleep(1);
+                    }
                     publisher.emit(i);
                 }
                 publisher.complete();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
                 publisher.error(e);
             }

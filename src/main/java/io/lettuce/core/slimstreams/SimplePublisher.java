@@ -89,14 +89,14 @@ public class SimplePublisher<T> implements Publisher<T> {
             return false;
         }
 
-        buffer.offer(element);
+        boolean emitted = buffer.offer(element);
 
         SubscriberState<T> state = subscriberState.get();
         if (state != null) {
             state.drain();
         }
 
-        return true;
+        return emitted;
     }
 
     /**
