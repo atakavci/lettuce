@@ -181,6 +181,9 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
 
         subscriber.onSubscribe(state.subscription);
 
+        // Mark that onSubscribe has completed - now drain can proceed
+        state.markOnSubscribeCompleted();
+
         // Deliver any buffered elements or terminal signals
         state.drain();
     }
@@ -258,6 +261,8 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
 
         private final AtomicBoolean terminated = new AtomicBoolean(false);
 
+        private final AtomicBoolean onSubscribeCompleted = new AtomicBoolean(false);
+
         SubscriberState(Subscriber<? super R> subscriber, SimpleProcessor<?, R> processor) {
             this.subscriber = subscriber;
             this.processor = processor;
@@ -279,7 +284,16 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
             });
         }
 
+        void markOnSubscribeCompleted() {
+            onSubscribeCompleted.set(true);
+        }
+
         void drain() {
+            // Don't drain until onSubscribe has completed
+            if (!onSubscribeCompleted.get()) {
+                return;
+            }
+
             if (!draining.compareAndSet(false, true)) {
                 return;
             }

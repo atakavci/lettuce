@@ -70,6 +70,9 @@ public class SimplePublisher<T> implements Publisher<T> {
 
         subscriber.onSubscribe(state.subscription);
 
+        // Mark that onSubscribe has completed - now drain can proceed
+        state.markOnSubscribeCompleted();
+
         // Deliver any buffered elements or terminal signals
         state.drain();
     }
@@ -173,6 +176,8 @@ public class SimplePublisher<T> implements Publisher<T> {
 
         private final AtomicBoolean terminated = new AtomicBoolean(false);
 
+        private final AtomicBoolean onSubscribeCompleted = new AtomicBoolean(false);
+
         SubscriberState(Subscriber<? super T> subscriber, SimplePublisher<T> publisher) {
             this.subscriber = subscriber;
             this.publisher = publisher;
@@ -183,7 +188,16 @@ public class SimplePublisher<T> implements Publisher<T> {
             });
         }
 
+        void markOnSubscribeCompleted() {
+            onSubscribeCompleted.set(true);
+        }
+
         void drain() {
+            // Don't drain until onSubscribe has completed
+            if (!onSubscribeCompleted.get()) {
+                return;
+            }
+
             if (!draining.compareAndSet(false, true)) {
                 return;
             }
