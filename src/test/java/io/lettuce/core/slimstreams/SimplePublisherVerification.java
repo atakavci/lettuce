@@ -19,7 +19,7 @@ public class SimplePublisherVerification extends PublisherVerification<Long> {
 
     @Override
     public Publisher<Long> createPublisher(long elements) {
-        SimplePublisher<Long> publisher = new SimplePublisher<>();
+        SimplePublisher<Long> publisher = new SimplePublisher<>(true);
 
         // Emit elements in a separate thread to avoid blocking
         Thread emitter = new Thread(() -> {

@@ -48,9 +48,18 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
     /**
      * Creates a new unicast {@link SimpleProcessor} with an identity transformer.
      */
-    @SuppressWarnings("unchecked")
     public SimpleProcessor() {
-        this((Transformer<T, R>) (Transformer<T, T>) element -> element, false);
+        this(false);
+    }
+
+    /**
+     * Creates a new {@link SimpleProcessor} with an identity transformer.
+     *
+     * @param multicast {@code true} to allow multiple downstream subscribers, {@code false} for unicast
+     */
+    @SuppressWarnings("unchecked")
+    public SimpleProcessor(boolean multicast) {
+        this((Transformer<T, R>) (Transformer<T, T>) element -> element, multicast);
     }
 
     /**

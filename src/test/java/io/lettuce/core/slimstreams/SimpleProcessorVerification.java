@@ -39,7 +39,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
 
     @Override
     public Processor<Long, Long> createIdentityProcessor(int bufferSize) {
-        return new SimpleProcessor<>();
+        return new SimpleProcessor<>(true);
     }
 
     @Override
@@ -61,7 +61,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
 
     @Override
     public Publisher<Long> createHelperPublisher(long elements) {
-        SimplePublisher<Long> publisher = new SimplePublisher<>();
+        SimplePublisher<Long> publisher = new SimplePublisher<>(true);
 
         executorService.execute(() -> {
             try {
@@ -89,7 +89,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     @Override
     public long maxSupportedSubscribers() {
         // SimpleProcessor supports only one subscriber (unicast)
-        return 1;
+        return 2;
     }
 
 }
