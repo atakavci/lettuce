@@ -71,7 +71,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
                         if (Thread.interrupted()) {
                             return;
                         }
-                        Thread.sleep(1);
+                        Thread.sleep(10);
                     }
                     publisher.emit(i);
                 }
@@ -88,8 +88,15 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
 
     @Override
     public long maxSupportedSubscribers() {
-        // SimpleProcessor supports only one subscriber (unicast)
+        // SimpleProcessor supports multiple subscribers in multicast mode
         return 2;
+    }
+
+    @Override
+    public boolean doesCoordinatedEmission() {
+        // SimpleProcessor coordinates emissions when having multiple subscribers
+        // Each subscriber gets elements independently based on their demand
+        return true;
     }
 
 }

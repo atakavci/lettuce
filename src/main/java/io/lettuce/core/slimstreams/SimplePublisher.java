@@ -1,7 +1,9 @@
 package io.lettuce.core.slimstreams;
 
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -28,6 +30,8 @@ public class SimplePublisher<T> implements Publisher<T> {
     private final Queue<T> buffer = new ConcurrentLinkedQueue<>();
 
     private final AtomicReference<SubscriberState<T>> subscriberState = new AtomicReference<>();
+
+    private final List<SubscriberState<T>> subscribers = new CopyOnWriteArrayList<>();
 
     private final AtomicBoolean completed = new AtomicBoolean(false);
 
@@ -60,11 +64,19 @@ public class SimplePublisher<T> implements Publisher<T> {
         SubscriberState<T> state = new SubscriberState<>(subscriber, this);
 
         if (!multicast) {
+            // Unicast mode: only one subscriber allowed
             if (!subscriberState.compareAndSet(null, state)) {
                 subscriber.onError(new IllegalStateException("Only one subscriber allowed"));
                 return;
             }
         } else {
+            // Multicast mode: support multiple subscribers
+            // Copy all currently buffered elements to the new subscriber's buffer
+            if (state.subscriberBuffer != null) {
+                state.subscriberBuffer.addAll(buffer);
+            }
+            subscribers.add(state);
+            // Also set the main subscriber state for backward compatibility
             subscriberState.set(state);
         }
 
@@ -78,7 +90,7 @@ public class SimplePublisher<T> implements Publisher<T> {
     }
 
     /**
-     * Emits an element to the subscriber.
+     * Emits an element to the subscriber(s).
      *
      * @param element the element to emit
      * @return {@code true} if the element was accepted, {@code false} if the publisher is terminated
@@ -92,11 +104,24 @@ public class SimplePublisher<T> implements Publisher<T> {
             return false;
         }
 
-        boolean emitted = buffer.offer(element);
+        boolean emitted;
 
-        SubscriberState<T> state = subscriberState.get();
-        if (state != null) {
-            state.drain();
+        // In multicast mode, add to shared buffer AND copy to each subscriber's buffer
+        if (multicast) {
+            emitted = buffer.offer(element); // Keep in shared buffer for new subscribers
+            for (SubscriberState<T> state : subscribers) {
+                if (state.subscriberBuffer != null) {
+                    state.subscriberBuffer.offer(element);
+                }
+                state.drain();
+            }
+        } else {
+            // In unicast mode, use shared buffer
+            emitted = buffer.offer(element);
+            SubscriberState<T> state = subscriberState.get();
+            if (state != null) {
+                state.drain();
+            }
         }
 
         return emitted;
@@ -107,9 +132,17 @@ public class SimplePublisher<T> implements Publisher<T> {
      */
     public void complete() {
         if (completed.compareAndSet(false, true)) {
-            SubscriberState<T> state = subscriberState.get();
-            if (state != null) {
-                state.drain();
+            // Drain all subscribers in multicast mode
+            if (multicast) {
+                for (SubscriberState<T> state : subscribers) {
+                    state.drain();
+                }
+            } else {
+                // Drain single subscriber in unicast mode
+                SubscriberState<T> state = subscriberState.get();
+                if (state != null) {
+                    state.drain();
+                }
             }
         }
     }
@@ -125,9 +158,17 @@ public class SimplePublisher<T> implements Publisher<T> {
         }
 
         if (error.compareAndSet(null, t)) {
-            SubscriberState<T> state = subscriberState.get();
-            if (state != null) {
-                state.drain();
+            // Drain all subscribers in multicast mode
+            if (multicast) {
+                for (SubscriberState<T> state : subscribers) {
+                    state.drain();
+                }
+            } else {
+                // Drain single subscriber in unicast mode
+                SubscriberState<T> state = subscriberState.get();
+                if (state != null) {
+                    state.drain();
+                }
             }
         }
     }
@@ -151,12 +192,22 @@ public class SimplePublisher<T> implements Publisher<T> {
     }
 
     /**
-     * Gets the number of buffered elements.
+     * Gets the number of buffered elements. In multicast mode, returns the maximum buffer size across all subscribers.
      *
      * @return the buffer size
      */
     public int getBufferSize() {
-        return buffer.size();
+        if (multicast) {
+            int maxSize = 0;
+            for (SubscriberState<T> state : subscribers) {
+                if (state.subscriberBuffer != null) {
+                    maxSize = Math.max(maxSize, state.subscriberBuffer.size());
+                }
+            }
+            return maxSize;
+        } else {
+            return buffer.size();
+        }
     }
 
     /**
@@ -178,13 +229,27 @@ public class SimplePublisher<T> implements Publisher<T> {
 
         private final AtomicBoolean onSubscribeCompleted = new AtomicBoolean(false);
 
+        // Per-subscriber buffer for multicast mode
+        private final Queue<T> subscriberBuffer;
+
         SubscriberState(Subscriber<? super T> subscriber, SimplePublisher<T> publisher) {
             this.subscriber = subscriber;
             this.publisher = publisher;
+            // In multicast mode, each subscriber gets its own buffer
+            this.subscriberBuffer = publisher.multicast ? new ConcurrentLinkedQueue<>() : null;
             this.subscription = new SimpleSubscription(subscriber, n -> drain(), () -> {
-                // Cancellation handler - clear buffer and drop subscriber reference
-                publisher.buffer.clear();
-                publisher.subscriberState.compareAndSet(this, null);
+                // Cancellation handler
+                if (publisher.multicast) {
+                    // In multicast mode, clear only this subscriber's buffer and remove from list
+                    if (subscriberBuffer != null) {
+                        subscriberBuffer.clear();
+                    }
+                    publisher.subscribers.remove(this);
+                } else {
+                    // In unicast mode, clear shared buffer and drop subscriber reference
+                    publisher.buffer.clear();
+                    publisher.subscriberState.compareAndSet(this, null);
+                }
             });
         }
 
@@ -202,24 +267,31 @@ public class SimplePublisher<T> implements Publisher<T> {
                 return;
             }
 
+            // Select the appropriate buffer (per-subscriber for multicast, shared for unicast)
+            Queue<T> bufferToUse = publisher.multicast ? subscriberBuffer : publisher.buffer;
+
             try {
                 while (true) {
                     if (subscription.isCancelled()) {
-                        publisher.buffer.clear();
+                        if (bufferToUse != null) {
+                            bufferToUse.clear();
+                        }
                         return;
                     }
 
                     // Check for error (only signal once)
                     Throwable error = publisher.error.get();
                     if (error != null && terminated.compareAndSet(false, true)) {
-                        publisher.buffer.clear();
+                        if (bufferToUse != null) {
+                            bufferToUse.clear();
+                        }
                         subscriber.onError(error);
                         return;
                     }
 
                     // Check for completion
                     boolean completed = publisher.completed.get();
-                    boolean empty = publisher.buffer.isEmpty();
+                    boolean empty = bufferToUse == null || bufferToUse.isEmpty();
 
                     if (completed && empty && terminated.compareAndSet(false, true)) {
                         subscriber.onComplete();
@@ -227,8 +299,8 @@ public class SimplePublisher<T> implements Publisher<T> {
                     }
 
                     // Emit elements if there's demand
-                    if (subscription.hasDemand() && !empty) {
-                        T element = publisher.buffer.poll();
+                    if (subscription.hasDemand() && !empty && bufferToUse != null) {
+                        T element = bufferToUse.poll();
                         if (element != null) {
                             subscription.decrementDemand(1);
                             try {

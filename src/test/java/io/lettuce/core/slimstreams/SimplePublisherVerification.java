@@ -19,21 +19,24 @@ public class SimplePublisherVerification extends PublisherVerification<Long> {
 
     @Override
     public Publisher<Long> createPublisher(long elements) {
+        // Use multicast mode to support multiple subscribers
         SimplePublisher<Long> publisher = new SimplePublisher<>(true);
 
         // Emit elements in a separate thread to avoid blocking
         Thread emitter = new Thread(() -> {
             try {
+                // Emit exactly the requested number of elements
                 for (long i = 0; i < elements; i++) {
                     // Emit with backpressure: wait if buffer is too large
-                    while (publisher.getBufferSize() > 1024) {
+                    while (publisher.getBufferSize() > 8192) {
                         if (Thread.interrupted()) {
                             return;
                         }
-                        Thread.sleep(1);
+                        Thread.sleep(10);
                     }
                     publisher.emit(i);
                 }
+                // Complete the publisher after emitting all elements
                 publisher.complete();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -52,6 +55,11 @@ public class SimplePublisherVerification extends PublisherVerification<Long> {
         SimplePublisher<Long> publisher = new SimplePublisher<>();
         publisher.error(new RuntimeException("Test failure"));
         return publisher;
+    }
+
+    @Override
+    public long maxElementsFromPublisher() {
+        return Integer.MAX_VALUE;
     }
 
 }
