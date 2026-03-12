@@ -10,6 +10,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 
+import io.lettuce.core.slimstreams.SimpleSubscription.CancellationHandler;
+import io.lettuce.core.slimstreams.SimpleSubscription.RequestHandler;
+
 /**
  * A simple, thread-safe implementation of {@link Publisher} that supports buffering and backpressure.
  * <p>
@@ -25,34 +28,30 @@ import org.reactivestreams.Subscriber;
  * @author Lettuce Contributors
  * @since 7.6.0
  */
-public class SimplePublisher<T> implements Publisher<T> {
-
-    private final Queue<T> buffer = new ConcurrentLinkedQueue<>();
-
-    private final AtomicReference<SubscriberState<T>> subscriberState = new AtomicReference<>();
+public class SimplePublisher<T> implements Publisher<T>, EmissionSink<T> {
 
     private final List<SubscriberState<T>> subscribers = new CopyOnWriteArrayList<>();
 
-    private final AtomicBoolean completed = new AtomicBoolean(false);
+    private volatile boolean completed = false;
 
     private final AtomicReference<Throwable> error = new AtomicReference<>();
 
-    private final boolean multicast;
+    private final EmissionController<T> emissionController;
 
     /**
-     * Creates a new unicast {@link SimplePublisher}.
+     * Creates a new {@link SimplePublisher} without emission control.
      */
     public SimplePublisher() {
-        this(false);
+        this(null);
     }
 
     /**
-     * Creates a new {@link SimplePublisher}.
+     * Creates a new {@link SimplePublisher} with emission control.
      *
-     * @param multicast {@code true} to allow multiple subscribers, {@code false} for unicast
+     * @param emissionController the controller to handle demand, or null for no control
      */
-    public SimplePublisher(boolean multicast) {
-        this.multicast = multicast;
+    public SimplePublisher(EmissionController<T> emissionController) {
+        this.emissionController = emissionController;
     }
 
     @Override
@@ -63,30 +62,17 @@ public class SimplePublisher<T> implements Publisher<T> {
 
         SubscriberState<T> state = new SubscriberState<>(subscriber, this);
 
-        if (!multicast) {
-            // Unicast mode: only one subscriber allowed
-            if (!subscriberState.compareAndSet(null, state)) {
-                subscriber.onError(new IllegalStateException("Only one subscriber allowed"));
-                return;
-            }
-        } else {
-            // Multicast mode: support multiple subscribers
-            // Copy all currently buffered elements to the new subscriber's buffer
-            if (state.subscriberBuffer != null) {
-                state.subscriberBuffer.addAll(buffer);
-            }
-            subscribers.add(state);
-            // Also set the main subscriber state for backward compatibility
-            subscriberState.set(state);
-        }
+        subscribers.add(state);
 
         subscriber.onSubscribe(state.subscription);
 
         // Mark that onSubscribe has completed - now drain can proceed
         state.markOnSubscribeCompleted();
 
-        // Deliver any buffered elements or terminal signals
-        state.drain();
+        // TODO: check this below!!
+        // Trigger drain in case completion/error was signaled during onSubscribe
+        state.drain(0);
+
     }
 
     /**
@@ -95,63 +81,68 @@ public class SimplePublisher<T> implements Publisher<T> {
      * @param element the element to emit
      * @return {@code true} if the element was accepted, {@code false} if the publisher is terminated
      */
+    @Override
     public boolean emit(T element) {
         if (element == null) {
             throw new NullPointerException("Element must not be null");
         }
 
-        if (completed.get() || error.get() != null) {
+        if (completed || error.get() != null) {
             return false;
         }
 
-        boolean emitted;
-
-        // In multicast mode, add to shared buffer AND copy to each subscriber's buffer
-        if (multicast) {
-            emitted = buffer.offer(element); // Keep in shared buffer for new subscribers
-            for (SubscriberState<T> state : subscribers) {
-                if (state.subscriberBuffer != null) {
-                    state.subscriberBuffer.offer(element);
-                }
-                state.drain();
-            }
-        } else {
-            // In unicast mode, use shared buffer
-            emitted = buffer.offer(element);
-            SubscriberState<T> state = subscriberState.get();
-            if (state != null) {
-                state.drain();
-            }
+        // Here its possible that different subscribers might see
+        // different order of elements relative to each other.
+        // This is something accepted in our design, in favor of avoiding
+        // locks/synchronization, but could turn into a
+        // fundamental
+        // issue depending on the use case.
+        for (SubscriberState<T> state : subscribers) {
+            state.offer(element);
         }
 
-        return emitted;
+        // If these two loops are merged, in theory we could cause delays with offer
+        // just because
+        // drain takes too long for an other subscriber. Having said that, aim here is
+        // to benefit
+        // from the fact that subscribers can affect the drain on their own.
+        // Simple terms; a slow subscriber's drain could block the offer path for
+        // everyone:
+        for (SubscriberState<T> state : subscribers) {
+            state.drain(1);
+        }
+        return true;
+    }
+
+    @Override
+    public String toString() {
+        return "SimplePublisher{" + "subscribers=" + subscribers + ", completed=" + completed + ", error=" + error + '}';
     }
 
     /**
      * Completes the publisher.
+     * <p>
+     * This method is part of the {@link EmissionSink} interface and can be called by emission controllers to signal completion.
      */
+    @Override
     public void complete() {
-        if (completed.compareAndSet(false, true)) {
-            // Drain all subscribers in multicast mode
-            if (multicast) {
-                for (SubscriberState<T> state : subscribers) {
-                    state.drain();
-                }
-            } else {
-                // Drain single subscriber in unicast mode
-                SubscriberState<T> state = subscriberState.get();
-                if (state != null) {
-                    state.drain();
-                }
-            }
+        completed = true;
+
+        // TODO: check this below!!
+        // Drain all subscribers to deliver completion signal
+        for (SubscriberState<T> state : subscribers) {
+            state.drain(1);
         }
     }
 
     /**
      * Terminates the publisher with an error.
+     * <p>
+     * This method is part of the {@link EmissionSink} interface and can be called by emission controllers to signal an error.
      *
      * @param t the error
      */
+    @Override
     public void error(Throwable t) {
         if (t == null) {
             throw new NullPointerException("Error must not be null");
@@ -159,16 +150,8 @@ public class SimplePublisher<T> implements Publisher<T> {
 
         if (error.compareAndSet(null, t)) {
             // Drain all subscribers in multicast mode
-            if (multicast) {
-                for (SubscriberState<T> state : subscribers) {
-                    state.drain();
-                }
-            } else {
-                // Drain single subscriber in unicast mode
-                SubscriberState<T> state = subscriberState.get();
-                if (state != null) {
-                    state.drain();
-                }
+            for (SubscriberState<T> state : subscribers) {
+                state.drain(1);
             }
         }
     }
@@ -179,7 +162,7 @@ public class SimplePublisher<T> implements Publisher<T> {
      * @return {@code true} if completed, {@code false} otherwise
      */
     public boolean isCompleted() {
-        return completed.get();
+        return completed;
     }
 
     /**
@@ -192,22 +175,16 @@ public class SimplePublisher<T> implements Publisher<T> {
     }
 
     /**
-     * Gets the number of buffered elements. In multicast mode, returns the maximum buffer size across all subscribers.
+     * Gets the number of buffered elements.It returns the maximum buffer size across all subscribers.
      *
      * @return the buffer size
      */
     public int getBufferSize() {
-        if (multicast) {
-            int maxSize = 0;
-            for (SubscriberState<T> state : subscribers) {
-                if (state.subscriberBuffer != null) {
-                    maxSize = Math.max(maxSize, state.subscriberBuffer.size());
-                }
-            }
-            return maxSize;
-        } else {
-            return buffer.size();
+        int maxSize = 0;
+        for (SubscriberState<T> state : subscribers) {
+            maxSize = Math.max(maxSize, state.subscriberBuffer.size());
         }
+        return maxSize;
     }
 
     /**
@@ -227,7 +204,7 @@ public class SimplePublisher<T> implements Publisher<T> {
 
         private final AtomicBoolean terminated = new AtomicBoolean(false);
 
-        private final AtomicBoolean onSubscribeCompleted = new AtomicBoolean(false);
+        private volatile boolean onSubscribeCompleted = false;
 
         // Per-subscriber buffer for multicast mode
         private final Queue<T> subscriberBuffer;
@@ -236,30 +213,47 @@ public class SimplePublisher<T> implements Publisher<T> {
             this.subscriber = subscriber;
             this.publisher = publisher;
             // In multicast mode, each subscriber gets its own buffer
-            this.subscriberBuffer = publisher.multicast ? new ConcurrentLinkedQueue<>() : null;
-            this.subscription = new SimpleSubscription(subscriber, n -> drain(), () -> {
+            this.subscriberBuffer = new ConcurrentLinkedQueue<>();
+            // If there's an emission controller, let it handle the demand
+            RequestHandler requestHandler = publisher.emissionController != null ? n -> onDemandReceived(n) : n -> drain(n);
+
+            CancellationHandler cancellationHandler = () -> {
                 // Cancellation handler
-                if (publisher.multicast) {
-                    // In multicast mode, clear only this subscriber's buffer and remove from list
-                    if (subscriberBuffer != null) {
-                        subscriberBuffer.clear();
-                    }
-                    publisher.subscribers.remove(this);
-                } else {
-                    // In unicast mode, clear shared buffer and drop subscriber reference
-                    publisher.buffer.clear();
-                    publisher.subscriberState.compareAndSet(this, null);
-                }
-            });
+                publisher.subscribers.remove(this);
+                // Clear this subscriber's buffer and remove from list
+                subscriberBuffer.clear();
+            };
+            this.subscription = new SimpleSubscription(subscriber, requestHandler, cancellationHandler);
+        }
+
+        void onDemandReceived(long requestedAmount) {
+            // Ask controller how much it's willing to accept
+            // long acceptedAmount =
+            publisher.emissionController.onDemand(requestedAmount, publisher);
+
+            // // If controller accepted some demand, update subscription demand
+            // if (acceptedAmount > 0 && acceptedAmount < requestedAmount) {
+            // // Controller accepted less than requested, adjust demand
+            // long toRemove = requestedAmount - acceptedAmount;
+            // subscription.decrementDemand(toRemove);
+            // }
+            drain(requestedAmount);
         }
 
         void markOnSubscribeCompleted() {
-            onSubscribeCompleted.set(true);
+            onSubscribeCompleted = true;
         }
 
-        void drain() {
+        void offer(T element) {
+            if (terminated.get()) {
+                return;
+            }
+            subscriberBuffer.offer(element);
+        }
+
+        void drain(long demand) {
             // Don't drain until onSubscribe has completed
-            if (!onSubscribeCompleted.get()) {
+            if (!onSubscribeCompleted) {
                 return;
             }
 
@@ -267,40 +261,35 @@ public class SimplePublisher<T> implements Publisher<T> {
                 return;
             }
 
-            // Select the appropriate buffer (per-subscriber for multicast, shared for unicast)
-            Queue<T> bufferToUse = publisher.multicast ? subscriberBuffer : publisher.buffer;
-
             try {
                 while (true) {
                     if (subscription.isCancelled()) {
-                        if (bufferToUse != null) {
-                            bufferToUse.clear();
-                        }
-                        return;
-                    }
-
-                    // Check for error (only signal once)
-                    Throwable error = publisher.error.get();
-                    if (error != null && terminated.compareAndSet(false, true)) {
-                        if (bufferToUse != null) {
-                            bufferToUse.clear();
-                        }
-                        subscriber.onError(error);
+                        subscriberBuffer.clear();
                         return;
                     }
 
                     // Check for completion
-                    boolean completed = publisher.completed.get();
-                    boolean empty = bufferToUse == null || bufferToUse.isEmpty();
+                    boolean empty = subscriberBuffer.isEmpty();
 
-                    if (completed && empty && terminated.compareAndSet(false, true)) {
+                    // Check for error (only signal once)
+                    // Signal error only after buffer is empty
+                    // TODO : not sure around cheking empty flag and trying to comsume all of
+                    // subscriber buffer instead of clearing it and signalling
+                    // error right away
+                    Throwable error = publisher.error.get();
+                    if (error != null && empty && terminated.compareAndSet(false, true)) {
+                        subscriber.onError(error);
+                        return;
+                    }
+
+                    if (publisher.completed && empty && terminated.compareAndSet(false, true)) {
                         subscriber.onComplete();
                         return;
                     }
 
                     // Emit elements if there's demand
-                    if (subscription.hasDemand() && !empty && bufferToUse != null) {
-                        T element = bufferToUse.poll();
+                    if (subscription.hasDemand() && !empty) {
+                        T element = subscriberBuffer.poll();
                         if (element != null) {
                             subscription.decrementDemand(1);
                             try {
@@ -321,12 +310,13 @@ public class SimplePublisher<T> implements Publisher<T> {
             } finally {
                 draining.set(false);
             }
+        }
 
-            // Re-check in case new elements arrived while exiting
-            // Only re-drain if not terminated and not cancelled
-            if (!terminated.get() && subscription.hasDemand() && !publisher.buffer.isEmpty() && !subscription.isCancelled()) {
-                drain();
-            }
+        @Override
+        public String toString() {
+            return "SubscriberState{" + "subscriber=" + subscriber + ", subscription=" + subscription + ", draining=" + draining
+                    + ", terminated=" + terminated + ", onSubscribeCompleted=" + onSubscribeCompleted + ", subscriberBuffer="
+                    + subscriberBuffer + '}';
         }
 
     }

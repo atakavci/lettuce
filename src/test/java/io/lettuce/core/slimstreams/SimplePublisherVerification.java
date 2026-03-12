@@ -1,5 +1,7 @@
 package io.lettuce.core.slimstreams;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.reactivestreams.Publisher;
 import org.reactivestreams.tck.PublisherVerification;
 import org.reactivestreams.tck.TestEnvironment;
@@ -19,35 +21,35 @@ public class SimplePublisherVerification extends PublisherVerification<Long> {
 
     @Override
     public Publisher<Long> createPublisher(long elements) {
-        // Use multicast mode to support multiple subscribers
-        SimplePublisher<Long> publisher = new SimplePublisher<>(true);
-
-        // Emit elements in a separate thread to avoid blocking
-        Thread emitter = new Thread(() -> {
-            try {
-                // Emit exactly the requested number of elements
-                for (long i = 0; i < elements; i++) {
-                    // Emit with backpressure: wait if buffer is too large
-                    while (publisher.getBufferSize() > 8192) {
-                        if (Thread.interrupted()) {
-                            return;
-                        }
-                        Thread.sleep(10);
-                    }
-                    publisher.emit(i);
-                }
-                // Complete the publisher after emitting all elements
-                publisher.complete();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            } catch (Exception e) {
-                publisher.error(e);
-            }
-        });
-        emitter.setDaemon(true);
-        emitter.start();
-
+        SimplePublisher<Long> publisher = new SimplePublisher<>(createEmissionController(elements));
         return publisher;
+    }
+
+    private EmissionController<Long> createEmissionController(long maxElements) {
+
+        return new EmissionController<Long>() {
+            private AtomicLong totalEmitted = new AtomicLong();
+
+            @Override
+            public long onDemand(long requestedAmount, EmissionSink<Long> sink) {
+                long limitedEmission = maxElements > 8196 ? 8196 : maxElements;
+                long emitted = 0;
+                while (emitted < requestedAmount && totalEmitted.get() < limitedEmission) {
+                    long currentTotal = totalEmitted.getAndIncrement();
+                    if (currentTotal < limitedEmission) {
+                        sink.emit(currentTotal);
+                        emitted++;
+                        boolean lastEmit = currentTotal + 1 == limitedEmission;
+                        if (lastEmit) {
+                            sink.complete();
+                        }
+                    } else {
+                        return emitted;
+                    }
+                }
+                return emitted;
+            }
+        };
     }
 
     @Override

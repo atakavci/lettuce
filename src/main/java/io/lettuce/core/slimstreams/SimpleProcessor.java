@@ -1,7 +1,9 @@
 package io.lettuce.core.slimstreams;
 
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -16,6 +18,7 @@ import org.reactivestreams.Subscription;
  * This implementation follows the Reactive Streams specification:
  * <ul>
  * <li>Receives elements from upstream and publishes them downstream</li>
+ * <li>Supports multiple subscribers (multicast)</li>
  * <li>Respects backpressure from downstream</li>
  * <li>Propagates terminal signals (complete/error) from upstream to downstream</li>
  * <li>Thread-safe processing and emission</li>
@@ -29,37 +32,24 @@ import org.reactivestreams.Subscription;
  */
 public class SimpleProcessor<T, R> implements Processor<T, R> {
 
-    private final Queue<R> buffer = new ConcurrentLinkedQueue<>();
+    private final List<SubscriberState<R>> subscribers = new CopyOnWriteArrayList<>();
 
     private final AtomicReference<Subscription> upstreamSubscription = new AtomicReference<>();
 
-    private final AtomicReference<SubscriberState<R>> downstreamState = new AtomicReference<>();
-
-    private final AtomicBoolean terminated = new AtomicBoolean(false);
+    private volatile boolean terminated = false;
 
     private final AtomicReference<Throwable> error = new AtomicReference<>();
 
-    private final AtomicBoolean completed = new AtomicBoolean(false);
+    private volatile boolean completed = false;
 
     private final Transformer<T, R> transformer;
-
-    private final boolean multicast;
 
     /**
      * Creates a new unicast {@link SimpleProcessor} with an identity transformer.
      */
-    public SimpleProcessor() {
-        this(false);
-    }
-
-    /**
-     * Creates a new {@link SimpleProcessor} with an identity transformer.
-     *
-     * @param multicast {@code true} to allow multiple downstream subscribers, {@code false} for unicast
-     */
     @SuppressWarnings("unchecked")
-    public SimpleProcessor(boolean multicast) {
-        this((Transformer<T, R>) (Transformer<T, T>) element -> element, multicast);
+    public SimpleProcessor() {
+        this((Transformer<T, R>) (Transformer<T, T>) element -> element);
     }
 
     /**
@@ -68,21 +58,10 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
      * @param transformer the transformer to apply to elements
      */
     public SimpleProcessor(Transformer<T, R> transformer) {
-        this(transformer, false);
-    }
-
-    /**
-     * Creates a new {@link SimpleProcessor} with the specified transformer and multicast mode.
-     *
-     * @param transformer the transformer to apply to elements
-     * @param multicast {@code true} to allow multiple downstream subscribers, {@code false} for unicast
-     */
-    public SimpleProcessor(Transformer<T, R> transformer, boolean multicast) {
         if (transformer == null) {
             throw new NullPointerException("transformer must not be null");
         }
         this.transformer = transformer;
-        this.multicast = multicast;
     }
 
     // Subscriber implementation (upstream)
@@ -98,9 +77,6 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
             s.cancel();
             return;
         }
-
-        // Request initial demand from upstream
-        s.request(1);
     }
 
     @Override
@@ -109,26 +85,37 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
             throw new NullPointerException("Element must not be null");
         }
 
-        if (terminated.get()) {
+        if (terminated) {
             return;
         }
 
         try {
             R transformed = transformer.transform(t);
             if (transformed != null) {
-                buffer.offer(transformed);
+                // Offer to all subscribers (multicast pattern from SimplePublisher)
+                for (SubscriberState<R> state : subscribers) {
+                    state.offer(transformed);
+                }
 
-                SubscriberState<R> state = downstreamState.get();
-                if (state != null) {
+                // Drain all subscribers (separate loop to avoid blocking offer path)
+                for (SubscriberState<R> state : subscribers) {
                     state.drain();
                 }
             }
 
-            // Request more from upstream if downstream has demand
+            // Request more from upstream if any downstream subscriber has demand
+            // Don't request if there are no subscribers (e.g., all cancelled)
             Subscription upstream = upstreamSubscription.get();
-            if (upstream != null) {
-                SubscriberState<R> state = downstreamState.get();
-                if (state == null || state.subscription.hasDemand()) {
+            if (upstream != null && !terminated && !subscribers.isEmpty()) {
+                boolean hasDemand = false;
+                for (SubscriberState<R> state : subscribers) {
+                    if (state.subscription.hasDemand()) {
+                        hasDemand = true;
+                        break;
+                    }
+                }
+                // Request more if any subscriber has demand
+                if (hasDemand) {
                     upstream.request(1);
                 }
             }
@@ -143,28 +130,30 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
             throw new NullPointerException("Error must not be null");
         }
 
-        if (!terminated.compareAndSet(false, true)) {
+        if (terminated) {
             return;
         }
 
-        error.set(t);
+        terminated = true;
+        error.compareAndSet(null, t);
 
-        SubscriberState<R> state = downstreamState.get();
-        if (state != null) {
+        // Drain all subscribers in multicast mode (pattern from SimplePublisher)
+        for (SubscriberState<R> state : subscribers) {
             state.drain();
         }
     }
 
     @Override
     public void onComplete() {
-        if (!terminated.compareAndSet(false, true)) {
+        if (terminated) {
             return;
         }
 
-        completed.set(true);
+        terminated = true;
+        completed = true;
 
-        SubscriberState<R> state = downstreamState.get();
-        if (state != null) {
+        // Drain all subscribers to deliver completion signal (pattern from SimplePublisher)
+        for (SubscriberState<R> state : subscribers) {
             state.drain();
         }
     }
@@ -179,14 +168,7 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
 
         SubscriberState<R> state = new SubscriberState<>(subscriber, this);
 
-        if (!multicast) {
-            if (!downstreamState.compareAndSet(null, state)) {
-                subscriber.onError(new IllegalStateException("Only one subscriber allowed"));
-                return;
-            }
-        } else {
-            downstreamState.set(state);
-        }
+        subscribers.add(state);
 
         subscriber.onSubscribe(state.subscription);
 
@@ -203,7 +185,7 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
      * @return {@code true} if terminated, {@code false} otherwise
      */
     public boolean isTerminated() {
-        return terminated.get();
+        return terminated;
     }
 
     /**
@@ -212,7 +194,7 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
      * @return {@code true} if completed, {@code false} otherwise
      */
     public boolean isCompleted() {
-        return completed.get();
+        return completed;
     }
 
     /**
@@ -225,12 +207,17 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
     }
 
     /**
-     * Gets the number of buffered elements.
+     * Gets the number of buffered elements. Returns the maximum buffer size
+     * across all subscribers.
      *
      * @return the buffer size
      */
     public int getBufferSize() {
-        return buffer.size();
+        int maxSize = 0;
+        for (SubscriberState<R> state : subscribers) {
+            maxSize = Math.max(maxSize, state.subscriberBuffer.size());
+        }
+        return maxSize;
     }
 
     /**
@@ -270,36 +257,51 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
 
         private final AtomicBoolean terminated = new AtomicBoolean(false);
 
-        private final AtomicBoolean onSubscribeCompleted = new AtomicBoolean(false);
+        private volatile boolean onSubscribeCompleted = false;
+
+        // Per-subscriber buffer for multicast mode (pattern from SimplePublisher)
+        private final Queue<R> subscriberBuffer;
 
         SubscriberState(Subscriber<? super R> subscriber, SimpleProcessor<?, R> processor) {
             this.subscriber = subscriber;
             this.processor = processor;
+            // In multicast mode, each subscriber gets its own buffer
+            this.subscriberBuffer = new ConcurrentLinkedQueue<>();
             this.subscription = new SimpleSubscription(subscriber, n -> {
                 drain();
                 // Request more from upstream when downstream requests
                 Subscription upstream = processor.upstreamSubscription.get();
-                if (upstream != null && !processor.terminated.get()) {
+                if (upstream != null && !processor.terminated) {
                     upstream.request(n);
                 }
             }, () -> {
-                // Cancellation handler - clear buffer and drop subscriber reference
-                processor.buffer.clear();
-                processor.downstreamState.compareAndSet(this, null);
-                Subscription upstream = processor.upstreamSubscription.get();
-                if (upstream != null) {
-                    upstream.cancel();
+                // Cancellation handler - remove subscriber from list and clear its buffer
+                processor.subscribers.remove(this);
+                subscriberBuffer.clear();
+                // Cancel upstream if no more subscribers
+                if (processor.subscribers.isEmpty()) {
+                    Subscription upstream = processor.upstreamSubscription.get();
+                    if (upstream != null) {
+                        upstream.cancel();
+                    }
                 }
             });
         }
 
         void markOnSubscribeCompleted() {
-            onSubscribeCompleted.set(true);
+            onSubscribeCompleted = true;
+        }
+
+        void offer(R element) {
+            if (terminated.get()) {
+                return;
+            }
+            subscriberBuffer.offer(element);
         }
 
         void drain() {
             // Don't drain until onSubscribe has completed
-            if (!onSubscribeCompleted.get()) {
+            if (!onSubscribeCompleted) {
                 return;
             }
 
@@ -310,30 +312,29 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
             try {
                 while (true) {
                     if (subscription.isCancelled()) {
-                        processor.buffer.clear();
+                        subscriberBuffer.clear();
                         return;
                     }
 
-                    // Check for error (only signal once)
+                    // Check for error first - errors must be propagated immediately
                     Throwable error = processor.error.get();
                     if (error != null && terminated.compareAndSet(false, true)) {
-                        processor.buffer.clear();
+                        subscriberBuffer.clear();
                         subscriber.onError(error);
                         return;
                     }
 
                     // Check for completion
-                    boolean completed = processor.completed.get();
-                    boolean empty = processor.buffer.isEmpty();
+                    boolean empty = subscriberBuffer.isEmpty();
 
-                    if (completed && empty && terminated.compareAndSet(false, true)) {
+                    if (processor.completed && empty && terminated.compareAndSet(false, true)) {
                         subscriber.onComplete();
                         return;
                     }
 
                     // Emit elements if there's demand
                     if (subscription.hasDemand() && !empty) {
-                        R element = processor.buffer.poll();
+                        R element = subscriberBuffer.poll();
                         if (element != null) {
                             subscription.decrementDemand(1);
                             try {
@@ -353,12 +354,6 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
                 }
             } finally {
                 draining.set(false);
-            }
-
-            // Re-check in case new elements arrived while exiting
-            // Only re-drain if not terminated and not cancelled
-            if (!terminated.get() && subscription.hasDemand() && !processor.buffer.isEmpty() && !subscription.isCancelled()) {
-                drain();
             }
         }
 
