@@ -11,6 +11,8 @@ import javax.inject.Inject;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.reactivestreams.Subscription;
+
 import io.lettuce.test.ReflectionTestUtils;
 
 import reactor.core.Disposable;
@@ -50,6 +52,28 @@ class ClientMetricsIntegrationTests extends TestSupport {
         assertThat(events).isNotEmpty();
 
         disposable.dispose();
+    }
+
+    @Test
+    @Inject
+    void testMetricsEventWithPublisher(RedisClient client, StatefulRedisConnection<String, String> connection) {
+
+        Collection<CommandLatencyEvent> events = new LinkedBlockingQueue<>();
+        EventBus eventBus = client.getResources().eventBus();
+        MetricEventPublisher publisher = (MetricEventPublisher) ReflectionTestUtils.getField(client.getResources(),
+                "metricEventPublisher");
+        publisher.emitMetricsEvent();
+
+        Subscription subscription = eventBus.subscribe(CommandLatencyEvent.class, e -> events.add(e));
+
+        generateTestData(connection.sync());
+        publisher.emitMetricsEvent();
+
+        Wait.untilTrue(() -> !events.isEmpty()).waitOrTimeout();
+
+        assertThat(events).isNotEmpty();
+
+        subscription.cancel();
     }
 
     private void generateTestData(RedisCommands<String, String> redis) {
