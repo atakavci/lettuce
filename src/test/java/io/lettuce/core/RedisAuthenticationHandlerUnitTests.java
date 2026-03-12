@@ -9,15 +9,15 @@ import io.lettuce.core.protocol.CommandType;
 import io.lettuce.core.protocol.ProtocolVersion;
 import io.lettuce.core.protocol.RedisCommand;
 import io.lettuce.core.resource.ClientResources;
+import io.lettuce.test.Wait;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
 import reactor.core.scheduler.Schedulers;
-import reactor.test.StepVerifier;
 
-import java.time.Duration;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static io.lettuce.TestTags.UNIT_TEST;
 import static io.lettuce.core.protocol.CommandType.AUTH;
@@ -93,11 +93,19 @@ public class RedisAuthenticationHandlerUnitTests {
         verify(connection, times(0)).dispatch(any(RedisCommand.class)); // No command should be sent
 
         // Verify the event was published
-        StepVerifier.create(eventBus.get()).then(() -> {
-            handler.subscribe();
-            credentialsProvider.tryEmitError(new RuntimeException("Test error"));
-        }).expectNextMatches(event -> event instanceof ReauthenticationFailedEvent).thenCancel().verify(Duration.ofSeconds(1));
+        LinkedBlockingQueue<ReauthenticationFailedEvent> events = new LinkedBlockingQueue<>();
+        org.reactivestreams.Subscription subscription = eventBus.subscribe(ReauthenticationFailedEvent.class, events::add);
 
+        handler.subscribe();
+        credentialsProvider.tryEmitError(new RuntimeException("Test error"));
+
+        Wait.untilEquals(1, events::size).waitOrTimeout();
+
+        assertThat(events).hasSize(1);
+        ReauthenticationFailedEvent event = events.poll();
+        assertThat(event).isNotNull();
+
+        subscription.cancel();
         credentialsProvider.shutdown();
     }
 

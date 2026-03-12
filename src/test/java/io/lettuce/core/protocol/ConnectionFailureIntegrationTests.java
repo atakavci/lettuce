@@ -187,7 +187,7 @@ class ConnectionFailureIntegrationTests extends TestSupport {
 
             redisUri.setPort(TestSettings.nonexistentPort());
 
-            client.getResources().eventBus().get().subscribe(queue::add);
+            org.reactivestreams.Subscription subscription = client.getResources().eventBus().subscribe(Event.class, queue::add);
 
             commands.quit();
             Wait.untilTrue(() -> !connection.isOpen()).waitOrTimeout();
@@ -214,6 +214,8 @@ class ConnectionFailureIntegrationTests extends TestSupport {
             assertThat(failure2.remoteAddress()).isInstanceOf(InetSocketAddress.class);
             assertThat(failure2.getCause()).hasMessageContaining("Invalid first byte");
             assertThat(failure2.getAttempt()).isOne();
+
+            subscription.cancel();
 
         } finally {
             ts.shutdown();

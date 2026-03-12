@@ -15,7 +15,6 @@ import org.reactivestreams.Subscription;
 
 import io.lettuce.test.ReflectionTestUtils;
 
-import reactor.core.Disposable;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.event.EventBus;
@@ -34,29 +33,6 @@ class ClientMetricsIntegrationTests extends TestSupport {
     @Test
     @Inject
     void testMetricsEvent(RedisClient client, StatefulRedisConnection<String, String> connection) {
-
-        Collection<CommandLatencyEvent> events = new LinkedBlockingQueue<>();
-        EventBus eventBus = client.getResources().eventBus();
-        MetricEventPublisher publisher = (MetricEventPublisher) ReflectionTestUtils.getField(client.getResources(),
-                "metricEventPublisher");
-        publisher.emitMetricsEvent();
-
-        Disposable disposable = eventBus.get().filter(redisEvent -> redisEvent instanceof CommandLatencyEvent)
-                .cast(CommandLatencyEvent.class).doOnNext(events::add).subscribe();
-
-        generateTestData(connection.sync());
-        publisher.emitMetricsEvent();
-
-        Wait.untilTrue(() -> !events.isEmpty()).waitOrTimeout();
-
-        assertThat(events).isNotEmpty();
-
-        disposable.dispose();
-    }
-
-    @Test
-    @Inject
-    void testMetricsEventWithPublisher(RedisClient client, StatefulRedisConnection<String, String> connection) {
 
         Collection<CommandLatencyEvent> events = new LinkedBlockingQueue<>();
         EventBus eventBus = client.getResources().eventBus();
