@@ -11,7 +11,7 @@ package io.lettuce.core.slimstreams;
  * </ul>
  *
  * @param <T> the type of elements to emit
- * @author Lettuce Contributors
+ * @author Ali TAKAVCI
  * @since 7.6.0
  */
 @FunctionalInterface
@@ -34,4 +34,3 @@ public interface EmissionController<T> {
     long onDemand(long requestedAmount, EmissionSink<T> sink);
 
 }
-

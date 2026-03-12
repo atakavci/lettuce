@@ -8,7 +8,7 @@ import org.testng.annotations.Test;
 /**
  * Reactive Streams TCK whitebox verification for {@link SimpleSubscriber}.
  *
- * @author Lettuce Contributors
+ * @author Ali TAKAVCI
  */
 @Test
 public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVerification<Long> {
@@ -50,8 +50,8 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     // ==================== Subscriber Spec Tests ====================
 
     /**
-     * Spec 2.2: Subscriber should asynchronously dispatch signals.
-     * This is a recommendation for performance, not a strict requirement.
+     * Spec 2.2: Subscriber should asynchronously dispatch signals. This is a recommendation for performance, not a strict
+     * requirement.
      */
     @Override
     @Test
@@ -60,19 +60,17 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     }
 
     /**
-     * Spec 2.4: After receiving onComplete or onError, subscription should be considered cancelled.
-     * This is a behavioral requirement that cannot be directly tested.
+     * Spec 2.4: After receiving onComplete or onError, subscription should be considered cancelled. This is a behavioral
+     * requirement that cannot be directly tested.
      */
     @Override
     @Test
-    public void untested_spec204_mustConsiderTheSubscriptionAsCancelledInAfterRecievingOnCompleteOrOnError()
-            throws Exception {
+    public void untested_spec204_mustConsiderTheSubscriptionAsCancelledInAfterRecievingOnCompleteOrOnError() throws Exception {
         notVerified(); // Behavioral requirement - cannot directly observe internal state
     }
 
     /**
-     * Spec 2.6: Subscriber must call cancel() if subscription is no longer valid.
-     * This tests cleanup behavior.
+     * Spec 2.6: Subscriber must call cancel() if subscription is no longer valid. This tests cleanup behavior.
      */
     @Override
     @Test
@@ -81,8 +79,8 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     }
 
     /**
-     * Spec 2.7: All calls on subscription must be from same thread or synchronized.
-     * This tests thread safety of subscription usage.
+     * Spec 2.7: All calls on subscription must be from same thread or synchronized. This tests thread safety of subscription
+     * usage.
      */
     @Override
     @Test
@@ -92,8 +90,7 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     }
 
     /**
-     * Spec 2.11: Method calls must happen-before processing of respective events.
-     * This tests memory visibility guarantees.
+     * Spec 2.11: Method calls must happen-before processing of respective events. This tests memory visibility guarantees.
      */
     @Override
     @Test
@@ -103,19 +100,16 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     }
 
     /**
-     * Spec 2.12: onSubscribe must not be called more than once (based on object equality).
-     * This is a spec violation test.
+     * Spec 2.12: onSubscribe must not be called more than once (based on object equality). This is a spec violation test.
      */
     @Override
     @Test
-    public void untested_spec212_mustNotCallOnSubscribeMoreThanOnceBasedOnObjectEquality_specViolation()
-            throws Throwable {
+    public void untested_spec212_mustNotCallOnSubscribeMoreThanOnceBasedOnObjectEquality_specViolation() throws Throwable {
         notVerified(); // Testing spec violations requires publisher to violate spec, which we don't control
     }
 
     /**
-     * Spec 2.13: Failing onNext/onError/onComplete invocations should be handled.
-     * This tests error handling in signal methods.
+     * Spec 2.13: Failing onNext/onError/onComplete invocations should be handled. This tests error handling in signal methods.
      */
     @Override
     @Test
@@ -126,8 +120,7 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     // ==================== Subscription Spec Tests ====================
 
     /**
-     * Spec 3.1: Subscription methods must not be called outside subscriber context.
-     * This tests proper usage of subscription.
+     * Spec 3.1: Subscription methods must not be called outside subscriber context. This tests proper usage of subscription.
      */
     @Override
     @Test
@@ -136,8 +129,7 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     }
 
     /**
-     * Spec 3.10: request() may synchronously call onNext on subscriber.
-     * This tests that synchronous emission is allowed.
+     * Spec 3.10: request() may synchronously call onNext on subscriber. This tests that synchronous emission is allowed.
      */
     @Override
     @Test
@@ -146,8 +138,8 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     }
 
     /**
-     * Spec 3.11: request() may synchronously call onComplete or onError.
-     * This tests that synchronous terminal signals are allowed.
+     * Spec 3.11: request() may synchronously call onComplete or onError. This tests that synchronous terminal signals are
+     * allowed.
      */
     @Override
     @Test
@@ -156,8 +148,8 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     }
 
     /**
-     * Spec 3.14: cancel() may cause publisher to shutdown if no other subscriptions exist.
-     * This tests resource cleanup behavior.
+     * Spec 3.14: cancel() may cause publisher to shutdown if no other subscriptions exist. This tests resource cleanup
+     * behavior.
      */
     @Override
     @Test
@@ -166,8 +158,7 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     }
 
     /**
-     * Spec 3.15: cancel() must not throw exception and must signal onError if needed.
-     * This tests error handling in cancel().
+     * Spec 3.15: cancel() must not throw exception and must signal onError if needed. This tests error handling in cancel().
      */
     @Override
     @Test
@@ -176,8 +167,7 @@ public class SimpleSubscriberWhiteboxVerification extends SubscriberWhiteboxVeri
     }
 
     /**
-     * Spec 3.16: request() must not throw exception and must onError the subscriber.
-     * This tests error handling in request().
+     * Spec 3.16: request() must not throw exception and must onError the subscriber. This tests error handling in request().
      */
     @Override
     @Test

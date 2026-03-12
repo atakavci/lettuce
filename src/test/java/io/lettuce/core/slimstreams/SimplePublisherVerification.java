@@ -10,7 +10,7 @@ import org.testng.annotations.Test;
 /**
  * Reactive Streams TCK verification for {@link SimplePublisher}.
  *
- * @author Lettuce Contributors
+ * @author Ali TAKAVCI
  */
 @Test
 public class SimplePublisherVerification extends PublisherVerification<Long> {
@@ -28,6 +28,7 @@ public class SimplePublisherVerification extends PublisherVerification<Long> {
     private EmissionController<Long> createEmissionController(long maxElements) {
 
         return new EmissionController<Long>() {
+
             private AtomicLong totalEmitted = new AtomicLong();
 
             @Override
@@ -49,6 +50,7 @@ public class SimplePublisherVerification extends PublisherVerification<Long> {
                 }
                 return emitted;
             }
+
         };
     }
 

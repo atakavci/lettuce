@@ -17,13 +17,11 @@ import org.testng.annotations.Test;
 /**
  * Reactive Streams TCK verification for {@link SimpleProcessor}.
  * <p>
- * Verifies that {@link SimpleProcessor} correctly implements the Reactive
- * Streams
- * specification by extending {@link IdentityProcessorVerification}, which tests
- * the processor both as a {@link org.reactivestreams.Subscriber} and as a
+ * Verifies that {@link SimpleProcessor} correctly implements the Reactive Streams specification by extending
+ * {@link IdentityProcessorVerification}, which tests the processor both as a {@link org.reactivestreams.Subscriber} and as a
  * {@link Publisher}.
  *
- * @author Lettuce Contributors
+ * @author Ali TAKAVCI
  */
 @Test
 public class SimpleProcessorVerification extends IdentityProcessorVerification<Long> {
@@ -33,9 +31,8 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Creates a new {@link SimpleProcessor} identity instance for each test.
-     * Uses {@link SimpleProcessor#identity()} since TCK verifies pass-through
-     * behaviour.
+     * Creates a new {@link SimpleProcessor} identity instance for each test. Uses {@link SimpleProcessor#identity()} since TCK
+     * verifies pass-through behaviour.
      *
      * @param bufferSize the buffer size to use for the processor
      */
@@ -47,9 +44,8 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Provides a publisher of {@code Long} elements for upstream subscription
-     * tests.
-     * Returns {@code null} to let the TCK use its own default publisher.
+     * Provides a publisher of {@code Long} elements for upstream subscription tests. Returns {@code null} to let the TCK use
+     * its own default publisher.
      *
      * @param elements the number of elements the publisher should emit
      */
@@ -71,6 +67,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     private EmissionController<Long> createEmissionController(long maxElements) {
 
         return new EmissionController<Long>() {
+
             private AtomicLong totalEmitted = new AtomicLong();
 
             @Override
@@ -92,12 +89,13 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
                 }
                 return emitted;
             }
+
         };
     }
 
     /**
-     * Provides a publisher that immediately terminates with an error.
-     * Used by the TCK to verify error propagation through the processor.
+     * Provides a publisher that immediately terminates with an error. Used by the TCK to verify error propagation through the
+     * processor.
      */
     @Override
     public Publisher<Long> createFailedPublisher() {
@@ -111,15 +109,12 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     // ==================== Publisher Spec Tests ====================
 
     /**
-     * Spec 1.6: After onComplete or onError, subscription should be considered
-     * cancelled.
-     * Verifies that after terminal signals, the subscription behaves as if
-     * cancelled.
+     * Spec 1.6: After onComplete or onError, subscription should be considered cancelled. Verifies that after terminal signals,
+     * the subscription behaves as if cancelled.
      */
     @Override
     @Test
-    public void untested_spec106_mustConsiderSubscriptionCancelledAfterOnErrorOrOnCompleteHasBeenCalled()
-            throws Throwable {
+    public void untested_spec106_mustConsiderSubscriptionCancelledAfterOnErrorOrOnCompleteHasBeenCalled() throws Throwable {
         // Test with onComplete
         {
             SimplePublisher<Long> publisher = new SimplePublisher<>();
@@ -127,6 +122,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
             AtomicReference<Subscription> subscriptionRef = new AtomicReference<>();
 
             publisher.subscribe(new Subscriber<Long>() {
+
                 @Override
                 public void onSubscribe(Subscription s) {
                     subscriptionRef.set(s);
@@ -146,6 +142,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
                 public void onComplete() {
                     receivedOnComplete.set(true);
                 }
+
             });
 
             publisher.complete();
@@ -169,6 +166,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
             AtomicBoolean receivedOnError = new AtomicBoolean(false);
 
             publisher.subscribe(new Subscriber<Long>() {
+
                 @Override
                 public void onSubscribe(Subscription s) {
                     s.request(10);
@@ -186,6 +184,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
                 @Override
                 public void onComplete() {
                 }
+
             });
 
             publisher.error(new RuntimeException("test error"));
@@ -205,8 +204,8 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 1.7: Once onError is signalled, no further signals should be emitted.
-     * This is difficult to test without internal state inspection.
+     * Spec 1.7: Once onError is signalled, no further signals should be emitted. This is difficult to test without internal
+     * state inspection.
      */
     @Override
     @Test
@@ -215,19 +214,17 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 1.8: Cancelled subscriptions should not receive onComplete or onError.
-     * This is a race condition scenario that's difficult to test reliably.
+     * Spec 1.8: Cancelled subscriptions should not receive onComplete or onError. This is a race condition scenario that's
+     * difficult to test reliably.
      */
     @Override
     @Test
-    public void untested_spec108_possiblyCanceledSubscriptionShouldNotReceiveOnErrorOrOnCompleteSignals()
-            throws Throwable {
+    public void untested_spec108_possiblyCanceledSubscriptionShouldNotReceiveOnErrorOrOnCompleteSignals() throws Throwable {
         notVerified(); // Race condition between cancel and terminal signals is hard to test reliably
     }
 
     /**
-     * Spec 1.9: subscribe() should not throw non-fatal exceptions.
-     * This tests that subscribe handles errors gracefully.
+     * Spec 1.9: subscribe() should not throw non-fatal exceptions. This tests that subscribe handles errors gracefully.
      */
     @Override
     @Test
@@ -237,9 +234,8 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 1.10: If same subscriber subscribes twice, second subscription should be
-     * rejected.
-     * This tests duplicate subscription handling.
+     * Spec 1.10: If same subscriber subscribes twice, second subscription should be rejected. This tests duplicate subscription
+     * handling.
      */
     @Override
     @Test
@@ -250,8 +246,8 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     // ==================== Subscriber Spec Tests ====================
 
     /**
-     * Spec 2.2: Subscriber should asynchronously dispatch signals.
-     * This is a recommendation for performance, not a strict requirement.
+     * Spec 2.2: Subscriber should asynchronously dispatch signals. This is a recommendation for performance, not a strict
+     * requirement.
      */
     @Override
     @Test
@@ -261,20 +257,17 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 2.4: After receiving onComplete or onError, subscription should be
-     * considered cancelled.
-     * This is a behavioral requirement similar to spec 1.6.
+     * Spec 2.4: After receiving onComplete or onError, subscription should be considered cancelled. This is a behavioral
+     * requirement similar to spec 1.6.
      */
     @Override
     @Test
-    public void untested_spec204_mustConsiderTheSubscriptionAsCancelledInAfterRecievingOnCompleteOrOnError()
-            throws Exception {
+    public void untested_spec204_mustConsiderTheSubscriptionAsCancelledInAfterRecievingOnCompleteOrOnError() throws Exception {
         notVerified(); // Behavioral requirement - cannot directly observe internal state
     }
 
     /**
-     * Spec 2.6: Subscriber must call cancel() if subscription is no longer valid.
-     * This tests cleanup behavior.
+     * Spec 2.6: Subscriber must call cancel() if subscription is no longer valid. This tests cleanup behavior.
      */
     @Override
     @Test
@@ -283,8 +276,8 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 2.7: All calls on subscription must be from same thread or synchronized.
-     * This tests thread safety of subscription usage.
+     * Spec 2.7: All calls on subscription must be from same thread or synchronized. This tests thread safety of subscription
+     * usage.
      */
     @Override
     @Test
@@ -294,8 +287,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 2.11: Method calls must happen-before processing of respective events.
-     * This tests memory visibility guarantees.
+     * Spec 2.11: Method calls must happen-before processing of respective events. This tests memory visibility guarantees.
      */
     @Override
     @Test
@@ -306,21 +298,17 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 2.12: onSubscribe must not be called more than once (based on object
-     * equality).
-     * This is a spec violation test.
+     * Spec 2.12: onSubscribe must not be called more than once (based on object equality). This is a spec violation test.
      */
     @Override
     @Test
-    public void untested_spec212_mustNotCallOnSubscribeMoreThanOnceBasedOnObjectEquality_specViolation()
-            throws Throwable {
+    public void untested_spec212_mustNotCallOnSubscribeMoreThanOnceBasedOnObjectEquality_specViolation() throws Throwable {
         notVerified(); // Testing spec violations requires publisher to violate spec, which we don't
                        // control
     }
 
     /**
-     * Spec 2.13: Failing onNext/onError/onComplete invocations should be handled.
-     * This tests error handling in signal methods.
+     * Spec 2.13: Failing onNext/onError/onComplete invocations should be handled. This tests error handling in signal methods.
      */
     @Override
     @Test
@@ -331,8 +319,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     // ==================== Subscription Spec Tests ====================
 
     /**
-     * Spec 3.1: Subscription methods must not be called outside subscriber context.
-     * This tests proper usage of subscription.
+     * Spec 3.1: Subscription methods must not be called outside subscriber context. This tests proper usage of subscription.
      */
     @Override
     @Test
@@ -341,8 +328,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 3.4: request() should not perform heavy computations.
-     * This is a performance guideline.
+     * Spec 3.4: request() should not perform heavy computations. This is a performance guideline.
      */
     @Override
     @Test
@@ -351,8 +337,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 3.5: cancel() must not synchronously perform heavy computation.
-     * This is a performance guideline.
+     * Spec 3.5: cancel() must not synchronously perform heavy computation. This is a performance guideline.
      */
     @Override
     @Test
@@ -361,8 +346,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 3.10: request() may synchronously call onNext on subscriber.
-     * This tests that synchronous emission is allowed.
+     * Spec 3.10: request() may synchronously call onNext on subscriber. This tests that synchronous emission is allowed.
      */
     @Override
     @Test
@@ -371,8 +355,8 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 3.11: request() may synchronously call onComplete or onError.
-     * This tests that synchronous terminal signals are allowed.
+     * Spec 3.11: request() may synchronously call onComplete or onError. This tests that synchronous terminal signals are
+     * allowed.
      */
     @Override
     @Test
@@ -381,9 +365,8 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 3.14: cancel() may cause publisher to shutdown if no other subscriptions
-     * exist.
-     * This tests resource cleanup behavior.
+     * Spec 3.14: cancel() may cause publisher to shutdown if no other subscriptions exist. This tests resource cleanup
+     * behavior.
      */
     @Override
     @Test
@@ -392,9 +375,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 3.15: cancel() must not throw exception and must signal onError if
-     * needed.
-     * This tests error handling in cancel().
+     * Spec 3.15: cancel() must not throw exception and must signal onError if needed. This tests error handling in cancel().
      */
     @Override
     @Test
@@ -403,9 +384,7 @@ public class SimpleProcessorVerification extends IdentityProcessorVerification<L
     }
 
     /**
-     * Spec 3.16: request() must not throw exception and must onError the
-     * subscriber.
-     * This tests error handling in request().
+     * Spec 3.16: request() must not throw exception and must onError the subscriber. This tests error handling in request().
      */
     @Override
     @Test

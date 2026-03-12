@@ -27,7 +27,7 @@ import org.reactivestreams.Subscription;
  *
  * @param <T> the type of input elements
  * @param <R> the type of output elements
- * @author Lettuce Contributors
+ * @author Ali TAKAVCI
  * @since 7.6.0
  */
 public class SimpleProcessor<T, R> implements Processor<T, R> {
@@ -207,8 +207,7 @@ public class SimpleProcessor<T, R> implements Processor<T, R> {
     }
 
     /**
-     * Gets the number of buffered elements. Returns the maximum buffer size
-     * across all subscribers.
+     * Gets the number of buffered elements. Returns the maximum buffer size across all subscribers.
      *
      * @return the buffer size
      */

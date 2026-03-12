@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Example demonstrating the usage of the simple reactive-streams implementations.
  *
- * @author Lettuce Contributors
+ * @author Ali TAKAVCI
  */
 public class SimpleReactiveStreamsExample {
 

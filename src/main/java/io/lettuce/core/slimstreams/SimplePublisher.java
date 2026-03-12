@@ -25,7 +25,7 @@ import io.lettuce.core.slimstreams.SimpleSubscription.RequestHandler;
  * </ul>
  *
  * @param <T> the type of elements published
- * @author Lettuce Contributors
+ * @author Ali TAKAVCI
  * @since 7.6.0
  */
 public class SimplePublisher<T> implements Publisher<T>, EmissionSink<T> {

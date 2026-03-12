@@ -8,7 +8,7 @@ import org.testng.annotations.Test;
 /**
  * Reactive Streams TCK blackbox verification for {@link SimpleSubscriber}.
  *
- * @author Lettuce Contributors
+ * @author Ali TAKAVCI
  */
 @Test
 public class SimpleSubscriberVerification extends SubscriberBlackboxVerification<Long> {
