@@ -45,10 +45,6 @@ import org.reactivestreams.Subscription;
  */
 public class SimpleSubscriber<T> implements Subscriber<T> {
 
-    // -------------------------------------------------------------------------
-    // State machine
-    // -------------------------------------------------------------------------
-
     /**
      * Sentinel stored in {@code state} once a terminal signal has been processed (onComplete, onError, or cancel). Using a
      * typed sentinel instead of a second AtomicBoolean eliminates the TOCTOU race present in the original implementation.

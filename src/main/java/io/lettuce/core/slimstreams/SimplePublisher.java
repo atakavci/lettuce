@@ -5,6 +5,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.reactivestreams.Publisher;
@@ -204,7 +205,7 @@ public class SimplePublisher<T> implements Publisher<T>, EmissionSink<T> {
 
         protected final SimpleSubscription subscription;
 
-        protected final AtomicBoolean draining = new AtomicBoolean(false);
+        protected final AtomicInteger wip = new AtomicInteger(0);
 
         protected final AtomicBoolean terminated = new AtomicBoolean(false);
 
@@ -265,64 +266,76 @@ public class SimplePublisher<T> implements Publisher<T>, EmissionSink<T> {
                 return;
             }
 
-            if (!draining.compareAndSet(false, true)) {
+            if (wip.getAndIncrement() != 0) {
                 return;
             }
 
-            try {
-                while (true) {
-                    if (subscription.isCancelled()) {
-                        subscriberBuffer.clear();
-                        return;
-                    }
+            do {
+                if (subscription.isCancelled()) {
+                    subscriberBuffer.clear();
+                    return;
+                }
 
-                    // Check for completion
-                    boolean empty = subscriberBuffer.isEmpty();
+                // Check for completion
+                boolean empty = subscriberBuffer.isEmpty();
 
-                    // Check for error (only signal once)
-                    // Signal error only after buffer is empty
-                    // TODO : not sure around cheking empty flag and trying to comsume all of
-                    // subscriber buffer instead of clearing it and signalling
-                    // error right away
-                    Throwable error = publisher.error.get();
-                    if (error != null && empty && terminated.compareAndSet(false, true)) {
+                // Check for error (only signal once)
+                // Signal error only after buffer is empty
+                // TODO : not sure around cheking empty flag and trying to comsume all of
+                // subscriber buffer instead of clearing it and signalling
+                // error right away
+                Throwable error = publisher.error.get();
+                if (error != null && empty && terminated.compareAndSet(false, true)) {
+                    try {
                         subscriber.onError(error);
-                        return;
+                    } catch (Throwable ignored) {
+                        // Misbehaving Subscriber threw from onError — §2.13 violation.
+                        // Nothing further can be done; stream is already terminal.
                     }
+                    return;
+                }
 
-                    if (publisher.completed && empty && terminated.compareAndSet(false, true)) {
+                if (publisher.completed && empty && terminated.compareAndSet(false, true)) {
+                    try {
                         subscriber.onComplete();
-                        return;
+                    } catch (Throwable ignored) {
+                        // Misbehaving Subscriber threw from onComplete — §2.13 violation.
+                        // Nothing further can be done; stream is already terminal.
                     }
+                    return;
+                }
 
-                    // Emit elements if there's demand
-                    if (subscription.hasDemand() && !empty) {
-                        T element = subscriberBuffer.poll();
-                        if (element != null) {
-                            subscription.decrementDemand(1);
-                            try {
-                                subscriber.onNext(element);
-                            } catch (Throwable t) {
-                                if (terminated.compareAndSet(false, true)) {
-                                    subscription.cancel();
-                                    subscriber.onError(t);
-                                }
-                                return;
+                // Emit elements if there's demand
+                if (subscription.hasDemand() && !empty) {
+                    T element = subscriberBuffer.poll();
+                    if (element != null) {
+                        subscription.decrementDemand(1);
+                        try {
+                            subscriber.onNext(element);
+                        } catch (Throwable t) {
+                            if (terminated.compareAndSet(false, true)) {
+                                subscription.cancel();
+                                subscriber.onError(t);
                             }
+                            return;
                         }
-                    } else {
-                        // No demand or no elements, exit drain loop
+                    }
+                } else {
+                    // No demand or no elements: decrement wip and exit only if no
+                    // concurrent caller incremented wip while we were in this iteration.
+                    // If wip > 0 after decrement a concurrent offer() or request()
+                    // arrived — loop again to pick it up instead of exiting.
+                    if (wip.decrementAndGet() == 0) {
                         break;
                     }
                 }
-            } finally {
-                draining.set(false);
-            }
+
+            } while (true);
         }
 
         @Override
         public String toString() {
-            return "SubscriberState{" + "subscriber=" + subscriber + ", subscription=" + subscription + ", draining=" + draining
+            return "SubscriberState{" + "subscriber=" + subscriber + ", subscription=" + subscription + ", wip=" + wip
                     + ", terminated=" + terminated + ", onSubscribeCompleted=" + onSubscribeCompleted + ", subscriberBuffer="
                     + subscriberBuffer + '}';
         }
