@@ -1,5 +1,8 @@
 package io.lettuce.core.event;
 
+import org.reactivestreams.Subscription;
+
+import io.lettuce.core.slimstreams.SimpleSubscriber.NextHandler;
 import reactor.core.publisher.Flux;
 
 /**
@@ -16,6 +19,13 @@ public interface EventBus {
      * @return the observable to obtain events.
      */
     Flux<Event> get();
+
+    /**
+     * Subscribe to the event bus and {@link Event}s. The {@link Flux} drops events on backpressure to avoid contention.
+     *
+     * @return the observable to obtain events.
+     */
+    <T extends Event> Subscription subscribe(Class<T> eventType, NextHandler<T> subscriber);
 
     /**
      * Publish a {@link Event} to the bus.
