@@ -60,7 +60,7 @@ public class SimplePublisher<T> implements Publisher<T>, EmissionSink<T> {
             throw new NullPointerException("Subscriber must not be null");
         }
 
-        SubscriberState<T> state = new SubscriberState<>(subscriber, this);
+        SubscriberState<T> state = createSubscriberState(subscriber);
 
         subscribers.add(state);
 
@@ -187,33 +187,41 @@ public class SimplePublisher<T> implements Publisher<T>, EmissionSink<T> {
         return maxSize;
     }
 
+    protected SubscriberState<T> createSubscriberState(Subscriber<? super T> subscriber) {
+        return new SubscriberState<>(subscriber, this);
+    }
+
     /**
      * Internal state for managing a subscriber.
      *
      * @param <T> the type of elements
      */
-    private static class SubscriberState<T> {
+    protected static class SubscriberState<T> {
 
-        private final Subscriber<? super T> subscriber;
+        protected final Subscriber<? super T> subscriber;
 
-        private final SimplePublisher<T> publisher;
+        protected final SimplePublisher<T> publisher;
 
-        private final SimpleSubscription subscription;
+        protected final SimpleSubscription subscription;
 
-        private final AtomicBoolean draining = new AtomicBoolean(false);
+        protected final AtomicBoolean draining = new AtomicBoolean(false);
 
-        private final AtomicBoolean terminated = new AtomicBoolean(false);
+        protected final AtomicBoolean terminated = new AtomicBoolean(false);
 
-        private volatile boolean onSubscribeCompleted = false;
+        protected volatile boolean onSubscribeCompleted = false;
 
-        // Per-subscriber buffer for multicast mode
-        private final Queue<T> subscriberBuffer;
+        // Per-subscriber buffer to support proper multicast
+        protected final Queue<T> subscriberBuffer;
 
-        SubscriberState(Subscriber<? super T> subscriber, SimplePublisher<T> publisher) {
+        protected SubscriberState(Subscriber<? super T> subscriber, SimplePublisher<T> publisher) {
+            this(subscriber, publisher, new ConcurrentLinkedQueue<>());
+        }
+
+        protected SubscriberState(Subscriber<? super T> subscriber, SimplePublisher<T> publisher, Queue<T> subscriberBuffer) {
             this.subscriber = subscriber;
             this.publisher = publisher;
             // In multicast mode, each subscriber gets its own buffer
-            this.subscriberBuffer = new ConcurrentLinkedQueue<>();
+            this.subscriberBuffer = subscriberBuffer;
             // If there's an emission controller, let it handle the demand
             RequestHandler requestHandler = publisher.emissionController != null ? n -> onDemandReceived(n) : n -> drain(n);
 
