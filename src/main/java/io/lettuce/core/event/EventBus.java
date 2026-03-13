@@ -1,6 +1,8 @@
 package io.lettuce.core.event;
 
-import reactor.core.publisher.Flux;
+import org.reactivestreams.Subscription;
+
+import io.lettuce.core.slimstreams.SimpleSubscriber.NextHandler;
 
 /**
  * Interface for an EventBus. Events can be published over the bus that are delivered to the subscribers.
@@ -15,7 +17,7 @@ public interface EventBus {
      *
      * @return the observable to obtain events.
      */
-    Flux<Event> get();
+    <T extends Event> Subscription subscribe(Class<T> eventType, NextHandler<T> subscriber);
 
     /**
      * Publish a {@link Event} to the bus.

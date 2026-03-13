@@ -23,6 +23,7 @@ import static io.lettuce.TestTags.UNIT_TEST;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -31,7 +32,6 @@ import io.netty.resolver.dns.DnsAddressResolverGroup;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import reactor.test.StepVerifier;
 import io.lettuce.core.event.Event;
 import io.lettuce.core.event.EventBus;
 import io.lettuce.core.metrics.CommandLatencyCollector;
@@ -40,7 +40,6 @@ import io.lettuce.test.TestFutures;
 import io.lettuce.test.Wait;
 import io.lettuce.test.resource.FastShutdown;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.EventLoopGroup;
 import io.netty.channel.MultithreadEventLoopGroup;
 import io.netty.resolver.AddressResolverGroup;
 import io.netty.util.HashedWheelTimer;
@@ -206,7 +205,17 @@ class DefaultClientResourcesUnitTests {
         EventBus eventBus = sut.eventBus();
         Event event = mock(Event.class);
 
-        StepVerifier.create(eventBus.get()).then(() -> eventBus.publish(event)).expectNext(event).thenCancel().verify();
+        LinkedBlockingQueue<Event> events = new LinkedBlockingQueue<>();
+        org.reactivestreams.Subscription subscription = eventBus.subscribe(Event.class, events::add);
+
+        eventBus.publish(event);
+
+        Wait.untilEquals(1, events::size).waitOrTimeout();
+
+        assertThat(events).hasSize(1);
+        assertThat(events.poll()).isEqualTo(event);
+
+        subscription.cancel();
 
         assertThat(TestFutures.getOrTimeout(sut.shutdown(0, 0, TimeUnit.MILLISECONDS))).isTrue();
     }

@@ -40,44 +40,55 @@ public class ConnectionEventBusMonitoringUtil {
     public void setupEventBusMonitoring(RedisClient client) {
         EventBus eventBus = client.getResources().eventBus();
 
-        eventBus.get().subscribe(event -> {
+        // Subscribe to ConnectedEvent
+        eventBus.subscribe(ConnectedEvent.class, event -> {
             if (!monitoringActive.get())
                 return;
 
-            if (event instanceof ConnectedEvent) {
-                ConnectedEvent connected = (ConnectedEvent) event;
-                String channelId = getChannelIdFromEvent(connected);
-                connectedChannels.add(channelId);
-                log.info("EventBus: Channel connected - {}", channelId);
-            }
+            ConnectedEvent connected = (ConnectedEvent) event;
+            String channelId = getChannelIdFromEvent(connected);
+            connectedChannels.add(channelId);
+            log.info("EventBus: Channel connected - {}", channelId);
+        });
 
-            if (event instanceof ConnectionActivatedEvent) {
-                ConnectionActivatedEvent activated = (ConnectionActivatedEvent) event;
-                String channelId = getChannelIdFromEvent(activated);
-                activatedChannels.add(channelId);
-                currentChannelId.set(channelId);
-                log.info("EventBus: Connection activated - {}", channelId);
-            }
+        // Subscribe to ConnectionActivatedEvent
+        eventBus.subscribe(ConnectionActivatedEvent.class, event -> {
+            if (!monitoringActive.get())
+                return;
 
-            if (event instanceof DisconnectedEvent) {
-                DisconnectedEvent disconnected = (DisconnectedEvent) event;
-                String channelId = getChannelIdFromEvent(disconnected);
-                disconnectedChannels.add(channelId);
-                if (connectionTransitionLatch != null) {
-                    connectionTransitionLatch.countDown();
-                }
-                log.info("EventBus: Channel disconnected - {}", channelId);
-            }
+            ConnectionActivatedEvent activated = (ConnectionActivatedEvent) event;
+            String channelId = getChannelIdFromEvent(activated);
+            activatedChannels.add(channelId);
+            currentChannelId.set(channelId);
+            log.info("EventBus: Connection activated - {}", channelId);
+        });
 
-            if (event instanceof ConnectionDeactivatedEvent) {
-                ConnectionDeactivatedEvent deactivated = (ConnectionDeactivatedEvent) event;
-                String channelId = getChannelIdFromEvent(deactivated);
-                deactivatedChannels.add(channelId);
-                if (connectionTransitionLatch != null) {
-                    connectionTransitionLatch.countDown();
-                }
-                log.info("EventBus: Connection deactivated - {}", channelId);
+        // Subscribe to DisconnectedEvent
+        eventBus.subscribe(DisconnectedEvent.class, event -> {
+            if (!monitoringActive.get())
+                return;
+
+            DisconnectedEvent disconnected = (DisconnectedEvent) event;
+            String channelId = getChannelIdFromEvent(disconnected);
+            disconnectedChannels.add(channelId);
+            if (connectionTransitionLatch != null) {
+                connectionTransitionLatch.countDown();
             }
+            log.info("EventBus: Channel disconnected - {}", channelId);
+        });
+
+        // Subscribe to ConnectionDeactivatedEvent
+        eventBus.subscribe(ConnectionDeactivatedEvent.class, event -> {
+            if (!monitoringActive.get())
+                return;
+
+            ConnectionDeactivatedEvent deactivated = (ConnectionDeactivatedEvent) event;
+            String channelId = getChannelIdFromEvent(deactivated);
+            deactivatedChannels.add(channelId);
+            if (connectionTransitionLatch != null) {
+                connectionTransitionLatch.countDown();
+            }
+            log.info("EventBus: Connection deactivated - {}", channelId);
         });
 
         log.info("EventBus monitoring setup completed");

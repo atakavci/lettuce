@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.inject.Inject;
 
@@ -58,12 +59,9 @@ class CodecFailureIntegrationTests extends TestSupport {
     @Test
     void testCommandsWithCustomCodecRuntimeException() {
 
-        final Integer[] reconnects = { 0 };
-        client.getResources().eventBus().get().subscribe(event -> {
-            if (event instanceof ReconnectAttemptEvent) {
-                reconnects[0]++;
-            }
-        });
+        AtomicInteger reconnects = new AtomicInteger(0);
+        org.reactivestreams.Subscription subscription = client.getResources().eventBus().subscribe(ReconnectAttemptEvent.class,
+                event -> reconnects.incrementAndGet());
 
         try (StatefulRedisConnection<String, String> customConnection = client.connect(failingCodec)) {
             RedisCommands<String, String> customRedis = customConnection.sync();
@@ -91,7 +89,9 @@ class CodecFailureIntegrationTests extends TestSupport {
             assertThat(retrieved).isEqualTo(normalValue);
 
             // verify that we have reconnected after the exception
-            assertThat(reconnects[0]).isEqualTo(1);
+            assertThat(reconnects.get()).isEqualTo(1);
+        } finally {
+            subscription.cancel();
         }
     }
 
