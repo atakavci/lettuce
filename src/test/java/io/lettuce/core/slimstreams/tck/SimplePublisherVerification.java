@@ -1,4 +1,4 @@
-package io.lettuce.core.slimstreams;
+package io.lettuce.core.slimstreams.tck;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -6,6 +6,10 @@ import org.reactivestreams.Publisher;
 import org.reactivestreams.tck.PublisherVerification;
 import org.reactivestreams.tck.TestEnvironment;
 import org.testng.annotations.Test;
+
+import io.lettuce.core.slimstreams.EmissionController;
+import io.lettuce.core.slimstreams.EmissionSink;
+import io.lettuce.core.slimstreams.SimplePublisher;
 
 /**
  * Reactive Streams TCK verification for {@link SimplePublisher}.

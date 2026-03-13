@@ -916,7 +916,7 @@
                     <excludes>
                         <exclude>**/*Test</exclude>
                         <exclude>**/*IntegrationTests</exclude>
-                        <exclude>slimstreams/**</exclude>
+                        <exclude>slimstreams/tck/**</exclude>
                     </excludes>
                     <excludedGroups>integration</excludedGroups>
                 </configuration>
