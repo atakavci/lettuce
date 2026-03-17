@@ -291,6 +291,9 @@ public class SimplePublisher<T> implements Publisher<T>, EmissionSink<T> {
                     } catch (Throwable ignored) {
                         // Misbehaving Subscriber threw from onError — §2.13 violation.
                         // Nothing further can be done; stream is already terminal.
+                    } finally {
+                        publisher.subscribers.remove(this); // ← drop reference §3.13
+                        subscriberBuffer.clear();
                     }
                     return;
                 }
@@ -301,6 +304,9 @@ public class SimplePublisher<T> implements Publisher<T>, EmissionSink<T> {
                     } catch (Throwable ignored) {
                         // Misbehaving Subscriber threw from onComplete — §2.13 violation.
                         // Nothing further can be done; stream is already terminal.
+                    } finally {
+                        publisher.subscribers.remove(this); // ← drop reference §3.13
+                        subscriberBuffer.clear();
                     }
                     return;
                 }
@@ -331,6 +337,7 @@ public class SimplePublisher<T> implements Publisher<T>, EmissionSink<T> {
                 }
 
             } while (true);
+
         }
 
         @Override
