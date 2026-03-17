@@ -1,6 +1,7 @@
 package io.lettuce.core.event;
 
 import org.reactivestreams.Subscriber;
+
 /**
  * Interface for an EventBus. Events can be published over the bus that are delivered to the subscribers.
  *

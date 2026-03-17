@@ -61,7 +61,8 @@ class CodecFailureIntegrationTests extends TestSupport {
     void testCommandsWithCustomCodecRuntimeException() {
 
         AtomicInteger reconnects = new AtomicInteger(0);
-        EventSubscriber subscriber = EventSubscriber.forEvent(ReconnectAttemptEvent.class, event -> reconnects.incrementAndGet());
+        EventSubscriber subscriber = EventSubscriber.forEvent(ReconnectAttemptEvent.class,
+                event -> reconnects.incrementAndGet());
         client.getResources().eventBus().subscribe(subscriber);
 
         try (StatefulRedisConnection<String, String> customConnection = client.connect(failingCodec)) {
