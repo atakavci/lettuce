@@ -16,6 +16,7 @@ import io.lettuce.core.RedisChannelHandler;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisConnectionStateAdapter;
 import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.event.connection.ConnectionActivatedEvent;
 import io.lettuce.core.event.connection.ConnectionDeactivatedEvent;
 import io.lettuce.core.event.connection.ReconnectAttemptEvent;
@@ -39,7 +40,7 @@ public class ReconnectionTimingTracker {
     private final AtomicReference<Instant> lastDisconnectTime = new AtomicReference<>();
 
     // Event bus tracking
-    private final List<Subscription> eventSubscriptions = new ArrayList<>();
+    private final List<EventSubscriber> eventSubscribers = new ArrayList<>();
 
     // Connection state tracking
     private final AtomicReference<Instant> stateDisconnectTime = new AtomicReference<>();
@@ -63,21 +64,22 @@ public class ReconnectionTimingTracker {
      */
     public ReconnectionTimingTracker trackWithEventBus(RedisClient client) {
         // Subscribe to ConnectionDeactivatedEvent
-        eventSubscriptions.add(client.getResources().eventBus().subscribe(ConnectionDeactivatedEvent.class, event -> {
+        EventSubscriber subscriber = EventSubscriber.forEvent(ConnectionDeactivatedEvent.class, event -> {
             Instant now = Instant.now();
             ConnectionDeactivatedEvent deactivated = (ConnectionDeactivatedEvent) event;
             log.info("{} connection disconnected: {} at {}", trackerName, deactivated.remoteAddress(), now);
             lastDisconnectTime.set(now);
             reconnectionEvents
                     .add(new ReconnectionEvent(ReconnectionEvent.Type.DISCONNECTED, now, deactivated.remoteAddress()));
-        }));
+        });
+        client.getResources().eventBus().subscribe(subscriber);
+        eventSubscribers.add(subscriber);
 
         // Subscribe to ConnectionActivatedEvent
-        eventSubscriptions.add(client.getResources().eventBus().subscribe(ConnectionActivatedEvent.class, event -> {
+        subscriber = EventSubscriber.forEvent(ConnectionActivatedEvent.class, event -> {
             Instant now = Instant.now();
             ConnectionActivatedEvent activated = (ConnectionActivatedEvent) event;
             log.info("{} connection reconnected: {} at {}", trackerName, activated.remoteAddress(), now);
-
             Instant disconnectTime = lastDisconnectTime.get();
             if (disconnectTime != null) {
                 Duration reconnectionDuration = Duration.between(disconnectTime, now);
@@ -86,26 +88,32 @@ public class ReconnectionTimingTracker {
                         reconnectionDuration));
                 log.info("{} reconnection completed in: {} ms", trackerName, reconnectionDuration.toMillis());
             }
-        }));
+        });
+        client.getResources().eventBus().subscribe(subscriber);
+        eventSubscribers.add(subscriber);
 
         // Subscribe to ReconnectAttemptEvent
-        eventSubscriptions.add(client.getResources().eventBus().subscribe(ReconnectAttemptEvent.class, event -> {
+        subscriber = EventSubscriber.forEvent(ReconnectAttemptEvent.class, event -> {
             Instant now = Instant.now();
             ReconnectAttemptEvent attempt = (ReconnectAttemptEvent) event;
             log.info("{} reconnect attempt #{} with delay: {} ms", trackerName, attempt.getAttempt(),
                     attempt.getDelay().toMillis());
             reconnectionEvents.add(new ReconnectionEvent(ReconnectionEvent.Type.ATTEMPT, now, attempt.remoteAddress(),
                     attempt.getAttempt(), attempt.getDelay()));
-        }));
+        });
+        client.getResources().eventBus().subscribe(subscriber);
+        eventSubscribers.add(subscriber);
 
         // Subscribe to ReconnectFailedEvent
-        eventSubscriptions.add(client.getResources().eventBus().subscribe(ReconnectFailedEvent.class, event -> {
+        subscriber = EventSubscriber.forEvent(ReconnectFailedEvent.class, event -> {
             Instant now = Instant.now();
             ReconnectFailedEvent failed = (ReconnectFailedEvent) event;
             log.warn("{} reconnect attempt #{} failed: {}", trackerName, failed.getAttempt(), failed.getCause().getMessage());
             reconnectionEvents.add(new ReconnectionEvent(ReconnectionEvent.Type.FAILED, now, failed.remoteAddress(),
                     failed.getAttempt(), failed.getCause()));
-        }));
+        });
+        client.getResources().eventBus().subscribe(subscriber);
+        eventSubscribers.add(subscriber);
 
         return this;
     }
@@ -182,12 +190,12 @@ public class ReconnectionTimingTracker {
      * Clean up resources and stop tracking.
      */
     public void dispose() {
-        for (Subscription subscription : eventSubscriptions) {
-            if (subscription != null) {
-                subscription.cancel();
+        for (EventSubscriber subscriber : eventSubscribers) {
+            if (subscriber != null) {
+                subscriber.cancel();
             }
         }
-        eventSubscriptions.clear();
+        eventSubscribers.clear();
     }
 
     /**

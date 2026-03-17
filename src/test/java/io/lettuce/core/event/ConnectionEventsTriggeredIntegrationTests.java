@@ -49,7 +49,8 @@ class ConnectionEventsTriggeredIntegrationTests extends TestSupport {
         Collection<ConnectionEvent> events = new LinkedBlockingQueue<>();
         EventBus eventBus = client.getResources().eventBus();
 
-        Subscription subscription = eventBus.subscribe(ConnectionEvent.class, event -> events.add(event));
+        EventSubscriber subscriber = EventSubscriber.forEvent(ConnectionEvent.class, event -> events.add(event));
+        eventBus.subscribe(subscriber);
 
         client.connect().close();
 
@@ -64,7 +65,7 @@ class ConnectionEventsTriggeredIntegrationTests extends TestSupport {
         assertThat(firstEvent.localAddress()).isNotNull();
         assertThat(firstEvent.toString()).contains("->");
 
-        subscription.cancel();
+        subscriber.cancel();
         FastShutdown.shutdown(client);
     }
 
@@ -82,7 +83,8 @@ class ConnectionEventsTriggeredIntegrationTests extends TestSupport {
         Collection<AuthenticationEvent> events = new LinkedBlockingQueue<>();
         EventBus eventBus = client.getResources().eventBus();
 
-        Subscription subscription = eventBus.subscribe(AuthenticationEvent.class, event -> events.add(event));
+        EventSubscriber subscriber = EventSubscriber.forEvent(AuthenticationEvent.class, event -> events.add(event));
+        eventBus.subscribe(subscriber);
 
         WithPassword.run(client, () -> {
             client.connect(uri);
@@ -109,7 +111,7 @@ class ConnectionEventsTriggeredIntegrationTests extends TestSupport {
                     .extracting(ReauthenticationFailedEvent::getEpId).isNotNull();
         });
 
-        subscription.cancel();
+        subscriber.cancel();
         FastShutdown.shutdown(client);
     }
 

@@ -3,6 +3,7 @@ package io.lettuce.core;
 import io.lettuce.core.codec.StringCodec;
 import io.lettuce.core.event.DefaultEventBus;
 import io.lettuce.core.event.EventBus;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.event.connection.ReauthenticationFailedEvent;
 import io.lettuce.core.protocol.AsyncCommand;
 import io.lettuce.core.protocol.CommandType;
@@ -94,7 +95,7 @@ public class RedisAuthenticationHandlerUnitTests {
 
         // Verify the event was published
         LinkedBlockingQueue<ReauthenticationFailedEvent> events = new LinkedBlockingQueue<>();
-        org.reactivestreams.Subscription subscription = eventBus.subscribe(ReauthenticationFailedEvent.class, events::add);
+        EventSubscriber subscriber = EventSubscriber.forEvent(ReauthenticationFailedEvent.class, events::add);
 
         handler.subscribe();
         credentialsProvider.tryEmitError(new RuntimeException("Test error"));
@@ -105,7 +106,7 @@ public class RedisAuthenticationHandlerUnitTests {
         ReauthenticationFailedEvent event = events.poll();
         assertThat(event).isNotNull();
 
-        subscription.cancel();
+        subscriber.cancel();
         credentialsProvider.shutdown();
     }
 

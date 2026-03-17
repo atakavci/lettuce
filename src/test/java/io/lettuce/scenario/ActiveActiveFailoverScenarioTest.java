@@ -31,6 +31,7 @@ import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.SocketOptions;
 import io.lettuce.core.TimeoutOptions;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.failover.CircuitBreaker;
 import io.lettuce.core.failover.MultiDbClient;
 import io.lettuce.core.failover.api.CircuitBreakerConfig;
@@ -115,7 +116,7 @@ public class ActiveActiveFailoverScenarioTest {
 
     private StatefulRedisMultiDbConnection<String, String> connection;
 
-    private Subscription eventSubscription;
+    private EventSubscriber eventSubscriber;
 
     private RedisURI primaryUri;
 
@@ -144,8 +145,8 @@ public class ActiveActiveFailoverScenarioTest {
 
     @AfterEach
     public void tearDown() {
-        if (eventSubscription != null) {
-            eventSubscription.cancel();
+        if (eventSubscriber != null) {
+            eventSubscriber.cancel();
         }
         if (connection != null && connection.isOpen()) {
             connection.close();
@@ -446,8 +447,9 @@ public class ActiveActiveFailoverScenarioTest {
 
     private FailoverReporter setupFailoverReporter() {
         FailoverReporter reporter = new FailoverReporter();
-        eventSubscription = multiDbClient.getResources().eventBus().subscribe(DatabaseSwitchEvent.class,
+        eventSubscriber = EventSubscriber.forEvent(DatabaseSwitchEvent.class,
                 event -> reporter.accept((DatabaseSwitchEvent) event));
+        multiDbClient.getResources().eventBus().subscribe(eventSubscriber);
         return reporter;
     }
 

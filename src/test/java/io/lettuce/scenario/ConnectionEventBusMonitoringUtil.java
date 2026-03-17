@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.event.EventBus;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.event.connection.ConnectedEvent;
 import io.lettuce.core.event.connection.ConnectionActivatedEvent;
 import io.lettuce.core.event.connection.ConnectionDeactivatedEvent;
@@ -41,7 +42,7 @@ public class ConnectionEventBusMonitoringUtil {
         EventBus eventBus = client.getResources().eventBus();
 
         // Subscribe to ConnectedEvent
-        eventBus.subscribe(ConnectedEvent.class, event -> {
+        EventSubscriber subscriber = EventSubscriber.forEvent(ConnectedEvent.class, event -> {
             if (!monitoringActive.get())
                 return;
 
@@ -50,9 +51,10 @@ public class ConnectionEventBusMonitoringUtil {
             connectedChannels.add(channelId);
             log.info("EventBus: Channel connected - {}", channelId);
         });
+        eventBus.subscribe(subscriber);
 
         // Subscribe to ConnectionActivatedEvent
-        eventBus.subscribe(ConnectionActivatedEvent.class, event -> {
+        subscriber = EventSubscriber.forEvent(ConnectionActivatedEvent.class, event -> {
             if (!monitoringActive.get())
                 return;
 
@@ -62,9 +64,10 @@ public class ConnectionEventBusMonitoringUtil {
             currentChannelId.set(channelId);
             log.info("EventBus: Connection activated - {}", channelId);
         });
+        eventBus.subscribe(subscriber);
 
         // Subscribe to DisconnectedEvent
-        eventBus.subscribe(DisconnectedEvent.class, event -> {
+        subscriber = EventSubscriber.forEvent(DisconnectedEvent.class, event -> {
             if (!monitoringActive.get())
                 return;
 
@@ -76,9 +79,10 @@ public class ConnectionEventBusMonitoringUtil {
             }
             log.info("EventBus: Channel disconnected - {}", channelId);
         });
+        eventBus.subscribe(subscriber);
 
         // Subscribe to ConnectionDeactivatedEvent
-        eventBus.subscribe(ConnectionDeactivatedEvent.class, event -> {
+        subscriber = EventSubscriber.forEvent(ConnectionDeactivatedEvent.class, event -> {
             if (!monitoringActive.get())
                 return;
 
@@ -90,6 +94,7 @@ public class ConnectionEventBusMonitoringUtil {
             }
             log.info("EventBus: Connection deactivated - {}", channelId);
         });
+        eventBus.subscribe(subscriber);
 
         log.info("EventBus monitoring setup completed");
     }

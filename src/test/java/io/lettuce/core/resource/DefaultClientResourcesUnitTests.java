@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 import io.lettuce.core.event.Event;
 import io.lettuce.core.event.EventBus;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.metrics.CommandLatencyCollector;
 import io.lettuce.core.metrics.DefaultCommandLatencyCollectorOptions;
 import io.lettuce.test.TestFutures;
@@ -206,7 +207,7 @@ class DefaultClientResourcesUnitTests {
         Event event = mock(Event.class);
 
         LinkedBlockingQueue<Event> events = new LinkedBlockingQueue<>();
-        org.reactivestreams.Subscription subscription = eventBus.subscribe(Event.class, events::add);
+        EventSubscriber subscriber = EventSubscriber.forEvent(Event.class, events::add);
 
         eventBus.publish(event);
 
@@ -215,7 +216,7 @@ class DefaultClientResourcesUnitTests {
         assertThat(events).hasSize(1);
         assertThat(events.poll()).isEqualTo(event);
 
-        subscription.cancel();
+        subscriber.cancel();
 
         assertThat(TestFutures.getOrTimeout(sut.shutdown(0, 0, TimeUnit.MILLISECONDS))).isTrue();
     }

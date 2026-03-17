@@ -18,6 +18,7 @@ import io.lettuce.test.ReflectionTestUtils;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.event.EventBus;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.event.metrics.CommandLatencyEvent;
 import io.lettuce.core.event.metrics.MetricEventPublisher;
 import io.lettuce.test.LettuceExtension;
@@ -40,7 +41,9 @@ class ClientMetricsIntegrationTests extends TestSupport {
                 "metricEventPublisher");
         publisher.emitMetricsEvent();
 
-        Subscription subscription = eventBus.subscribe(CommandLatencyEvent.class, e -> events.add(e));
+        EventSubscriber subscriber = EventSubscriber.forEvent(CommandLatencyEvent.class, e -> events.add(e));
+
+        eventBus.subscribe(subscriber);
 
         generateTestData(connection.sync());
         publisher.emitMetricsEvent();
@@ -49,7 +52,7 @@ class ClientMetricsIntegrationTests extends TestSupport {
 
         assertThat(events).isNotEmpty();
 
-        subscription.cancel();
+        subscriber.cancel();
     }
 
     private void generateTestData(RedisCommands<String, String> redis) {

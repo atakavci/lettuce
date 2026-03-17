@@ -7,6 +7,7 @@ import io.lettuce.core.RedisURI;
 import io.lettuce.core.SocketOptions;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.reactive.RedisReactiveCommands;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.failover.api.DatabaseConfig;
 import io.lettuce.core.failover.MultiDbClient;
 import io.lettuce.core.failover.api.CircuitBreakerConfig;
@@ -62,7 +63,7 @@ public class AutomaticFailover {
         // Automatic failback are not supported in the current Beta release.
 
         // Listen to database switch events
-        Subscription eventSubscription = multiDbClient.getResources().eventBus().subscribe(DatabaseSwitchEvent.class, event -> {
+        EventSubscriber subscriber = EventSubscriber.forEvent(DatabaseSwitchEvent.class, event -> {
             DatabaseSwitchEvent switchEvent = (DatabaseSwitchEvent) event;
             log.info("Database switch from {} to {} (reason: {})", switchEvent.getFromDb(), switchEvent.getToDb(),
                     switchEvent.getReason());
@@ -74,6 +75,7 @@ public class AutomaticFailover {
             RedisURI currentEndpoint = connection.getCurrentEndpoint();
             log.info("Current endpoint after switch: {}", currentEndpoint);
         });
+        multiDbClient.getResources().eventBus().subscribe(subscriber);
 
         // Connect to the MultiDbClient
         StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
@@ -129,7 +131,7 @@ public class AutomaticFailover {
         log.info("Captured exceptions: {}", capturedExceptions);
 
         // Cleanup
-        eventSubscription.cancel();
+        subscriber.cancel();
         directClient.shutdown();
         multiDbClient.shutdown();
     }

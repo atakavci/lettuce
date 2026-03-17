@@ -32,7 +32,8 @@ class DefaultEventBusUnitTests {
         EventBus sut = new DefaultEventBus(Schedulers.immediate());
 
         Collection<Event> events = new LinkedBlockingQueue<>();
-        Subscription subscription = sut.subscribe(Event.class, e -> events.add(e));
+        EventSubscriber subscriber = EventSubscriber.forEvent(Event.class, e -> events.add(e));
+        sut.subscribe(subscriber);
 
         sut.publish(event);
 
@@ -42,7 +43,7 @@ class DefaultEventBusUnitTests {
         assertThat(events).hasSize(1);
         assertThat(events.iterator().next()).isEqualTo(event);
 
-        subscription.cancel();
+        subscriber.cancel();
     }
 
     @Test
@@ -53,8 +54,10 @@ class DefaultEventBusUnitTests {
         Collection<Event> events1 = new LinkedBlockingQueue<>();
         Collection<Event> events2 = new LinkedBlockingQueue<>();
 
-        Subscription subscription1 = sut.subscribe(Event.class, e -> events1.add(e));
-        Subscription subscription2 = sut.subscribe(Event.class, e -> events2.add(e));
+        EventSubscriber subscriber1 = EventSubscriber.forEvent(Event.class, e -> events1.add(e));
+        EventSubscriber subscriber2 = EventSubscriber.forEvent(Event.class, e -> events2.add(e));
+        sut.subscribe(subscriber1);
+        sut.subscribe(subscriber2);
 
         sut.publish(event);
 
@@ -67,8 +70,8 @@ class DefaultEventBusUnitTests {
         assertThat(events2).hasSize(1);
         assertThat(events2.iterator().next()).isEqualTo(event);
 
-        subscription1.cancel();
-        subscription2.cancel();
+        subscriber1.cancel();
+        subscriber2.cancel();
     }
 
 }
