@@ -207,7 +207,8 @@ class DefaultClientResourcesUnitTests {
         Event event = mock(Event.class);
 
         LinkedBlockingQueue<Event> events = new LinkedBlockingQueue<>();
-        EventSubscriber subscriber = EventSubscriber.forEvent(Event.class, events::add);
+        EventSubscriber<Event> subscriber = EventSubscriber.forEvent(Event.class, events::add);
+        eventBus.subscribe(subscriber);
 
         eventBus.publish(event);
 
