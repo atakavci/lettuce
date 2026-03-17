@@ -23,6 +23,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import static io.lettuce.TestTags.UNIT_TEST;
 import static io.lettuce.core.protocol.CommandType.AUTH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -96,6 +97,7 @@ public class RedisAuthenticationHandlerUnitTests {
         // Verify the event was published
         LinkedBlockingQueue<ReauthenticationFailedEvent> events = new LinkedBlockingQueue<>();
         EventSubscriber subscriber = EventSubscriber.forEvent(ReauthenticationFailedEvent.class, events::add);
+        eventBus.subscribe(subscriber);
 
         handler.subscribe();
         credentialsProvider.tryEmitError(new RuntimeException("Test error"));
@@ -105,6 +107,7 @@ public class RedisAuthenticationHandlerUnitTests {
         assertThat(events).hasSize(1);
         ReauthenticationFailedEvent event = events.poll();
         assertThat(event).isNotNull();
+        assertEquals(ReauthenticationFailedEvent.class, event.getClass());
 
         subscriber.cancel();
         credentialsProvider.shutdown();
