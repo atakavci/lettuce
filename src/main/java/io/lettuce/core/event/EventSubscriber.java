@@ -2,7 +2,7 @@ package io.lettuce.core.event;
 
 import io.lettuce.core.slimstreams.DemandingSubscriber;
 
-public class  EventSubscriber<T extends Event> extends DemandingSubscriber<Event> {
+public class EventSubscriber<T extends Event> extends DemandingSubscriber<Event> {
 
     private final Class<T> eventType;
 
