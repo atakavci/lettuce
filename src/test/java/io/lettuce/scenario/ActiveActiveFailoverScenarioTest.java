@@ -31,6 +31,7 @@ import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.SocketOptions;
 import io.lettuce.core.TimeoutOptions;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.failover.CircuitBreaker;
 import io.lettuce.core.failover.MultiDbClient;
 import io.lettuce.core.failover.api.CircuitBreakerConfig;
@@ -47,7 +48,7 @@ import io.lettuce.core.failover.health.ProbingPolicy;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.test.env.Endpoints;
 import io.lettuce.test.env.Endpoints.Endpoint;
-import reactor.core.Disposable;
+import org.reactivestreams.Subscription;
 
 @Tag(SCENARIO_TEST)
 @DisplayName("Active-Active Failover Scenario Tests")
@@ -115,7 +116,7 @@ public class ActiveActiveFailoverScenarioTest {
 
     private StatefulRedisMultiDbConnection<String, String> connection;
 
-    private Disposable eventSubscription;
+    private EventSubscriber eventSubscriber;
 
     private RedisURI primaryUri;
 
@@ -144,8 +145,8 @@ public class ActiveActiveFailoverScenarioTest {
 
     @AfterEach
     public void tearDown() {
-        if (eventSubscription != null) {
-            eventSubscription.dispose();
+        if (eventSubscriber != null) {
+            eventSubscriber.cancel();
         }
         if (connection != null && connection.isOpen()) {
             connection.close();
@@ -446,11 +447,9 @@ public class ActiveActiveFailoverScenarioTest {
 
     private FailoverReporter setupFailoverReporter() {
         FailoverReporter reporter = new FailoverReporter();
-        eventSubscription = multiDbClient.getResources().eventBus().get().subscribe(event -> {
-            if (event instanceof DatabaseSwitchEvent) {
-                reporter.accept((DatabaseSwitchEvent) event);
-            }
-        });
+        eventSubscriber = EventSubscriber.forEvent(DatabaseSwitchEvent.class,
+                event -> reporter.accept((DatabaseSwitchEvent) event));
+        multiDbClient.getResources().eventBus().subscribe(eventSubscriber);
         return reporter;
     }
 

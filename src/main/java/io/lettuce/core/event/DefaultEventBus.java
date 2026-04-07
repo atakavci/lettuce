@@ -1,9 +1,8 @@
 package io.lettuce.core.event;
 
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Sinks;
-import reactor.core.scheduler.Scheduler;
+import org.reactivestreams.Subscriber;
 import io.lettuce.core.event.jfr.EventRecorder;
+import io.lettuce.core.slimstreams.SimplePublisher;
 
 /**
  * Default implementation for an {@link EventBus}. Events are published using a {@link Scheduler} and events are recorded
@@ -14,20 +13,17 @@ import io.lettuce.core.event.jfr.EventRecorder;
  */
 public class DefaultEventBus implements EventBus {
 
-    private final Sinks.Many<Event> bus;
-
-    private final Scheduler scheduler;
-
     private final EventRecorder recorder = EventRecorder.getInstance();
 
-    public DefaultEventBus(Scheduler scheduler) {
-        this.bus = Sinks.many().multicast().directBestEffort();
-        this.scheduler = scheduler;
+    private final SimplePublisher<Event> publisher;
+
+    public DefaultEventBus(Object scheduler) {
+        this.publisher = new SimplePublisher<>();
     }
 
     @Override
-    public Flux<Event> get() {
-        return bus.asFlux().onBackpressureDrop().publishOn(scheduler);
+    public void subscribe(Subscriber<Event> subscriber) {
+        publisher.subscribe(subscriber);
     }
 
     @Override
@@ -35,15 +31,7 @@ public class DefaultEventBus implements EventBus {
 
         recorder.record(event);
 
-        Sinks.EmitResult emitResult;
-
-        while ((emitResult = bus.tryEmitNext(event)) == Sinks.EmitResult.FAIL_NON_SERIALIZED) {
-            // busy-loop
-        }
-
-        if (emitResult != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
-            emitResult.orThrow();
-        }
+        publisher.emit(event);
     }
 
 }

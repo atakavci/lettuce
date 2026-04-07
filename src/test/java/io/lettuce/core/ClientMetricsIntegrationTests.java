@@ -11,12 +11,14 @@ import javax.inject.Inject;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.reactivestreams.Subscription;
+
 import io.lettuce.test.ReflectionTestUtils;
 
-import reactor.core.Disposable;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.event.EventBus;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.event.metrics.CommandLatencyEvent;
 import io.lettuce.core.event.metrics.MetricEventPublisher;
 import io.lettuce.test.LettuceExtension;
@@ -39,8 +41,9 @@ class ClientMetricsIntegrationTests extends TestSupport {
                 "metricEventPublisher");
         publisher.emitMetricsEvent();
 
-        Disposable disposable = eventBus.get().filter(redisEvent -> redisEvent instanceof CommandLatencyEvent)
-                .cast(CommandLatencyEvent.class).doOnNext(events::add).subscribe();
+        EventSubscriber subscriber = EventSubscriber.forEvent(CommandLatencyEvent.class, e -> events.add(e));
+
+        eventBus.subscribe(subscriber);
 
         generateTestData(connection.sync());
         publisher.emitMetricsEvent();
@@ -49,7 +52,7 @@ class ClientMetricsIntegrationTests extends TestSupport {
 
         assertThat(events).isNotEmpty();
 
-        disposable.dispose();
+        subscriber.cancel();
     }
 
     private void generateTestData(RedisCommands<String, String> redis) {

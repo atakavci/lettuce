@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.inject.Inject;
 
@@ -19,6 +20,7 @@ import io.lettuce.core.RedisClient;
 import io.lettuce.core.TestSupport;
 import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.codec.RedisCodec;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.event.connection.ReconnectAttemptEvent;
 import io.netty.handler.codec.EncoderException;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,12 +60,10 @@ class CodecFailureIntegrationTests extends TestSupport {
     @Test
     void testCommandsWithCustomCodecRuntimeException() {
 
-        final Integer[] reconnects = { 0 };
-        client.getResources().eventBus().get().subscribe(event -> {
-            if (event instanceof ReconnectAttemptEvent) {
-                reconnects[0]++;
-            }
-        });
+        AtomicInteger reconnects = new AtomicInteger(0);
+        EventSubscriber subscriber = EventSubscriber.forEvent(ReconnectAttemptEvent.class,
+                event -> reconnects.incrementAndGet());
+        client.getResources().eventBus().subscribe(subscriber);
 
         try (StatefulRedisConnection<String, String> customConnection = client.connect(failingCodec)) {
             RedisCommands<String, String> customRedis = customConnection.sync();
@@ -91,7 +91,9 @@ class CodecFailureIntegrationTests extends TestSupport {
             assertThat(retrieved).isEqualTo(normalValue);
 
             // verify that we have reconnected after the exception
-            assertThat(reconnects[0]).isEqualTo(1);
+            assertThat(reconnects.get()).isEqualTo(1);
+        } finally {
+            subscriber.cancel();
         }
     }
 

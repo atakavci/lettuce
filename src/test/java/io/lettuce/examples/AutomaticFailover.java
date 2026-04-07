@@ -7,6 +7,7 @@ import io.lettuce.core.RedisURI;
 import io.lettuce.core.SocketOptions;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.reactive.RedisReactiveCommands;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.failover.api.DatabaseConfig;
 import io.lettuce.core.failover.MultiDbClient;
 import io.lettuce.core.failover.api.CircuitBreakerConfig;
@@ -17,6 +18,7 @@ import io.lettuce.test.Wait;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.reactivestreams.Subscription;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -61,20 +63,19 @@ public class AutomaticFailover {
         // Automatic failback are not supported in the current Beta release.
 
         // Listen to database switch events
-        multiDbClient.getResources().eventBus().get().subscribe(event -> {
-            if (event instanceof DatabaseSwitchEvent) {
-                DatabaseSwitchEvent switchEvent = (DatabaseSwitchEvent) event;
-                log.info("Database switch from {} to {} (reason: {})", switchEvent.getFromDb(), switchEvent.getToDb(),
-                        switchEvent.getReason());
+        EventSubscriber subscriber = EventSubscriber.forEvent(DatabaseSwitchEvent.class, event -> {
+            DatabaseSwitchEvent switchEvent = (DatabaseSwitchEvent) event;
+            log.info("Database switch from {} to {} (reason: {})", switchEvent.getFromDb(), switchEvent.getToDb(),
+                    switchEvent.getReason());
 
-                // Access the source connection
-                StatefulRedisMultiDbConnection<?, ?> connection = switchEvent.getSource();
+            // Access the source connection
+            StatefulRedisMultiDbConnection<?, ?> connection = switchEvent.getSource();
 
-                // Query connection state
-                RedisURI currentEndpoint = connection.getCurrentEndpoint();
-                log.info("Current endpoint after switch: {}", currentEndpoint);
-            }
+            // Query connection state
+            RedisURI currentEndpoint = connection.getCurrentEndpoint();
+            log.info("Current endpoint after switch: {}", currentEndpoint);
         });
+        multiDbClient.getResources().eventBus().subscribe(subscriber);
 
         // Connect to the MultiDbClient
         StatefulRedisMultiDbConnection<String, String> connection = multiDbClient.connect();
@@ -130,6 +131,7 @@ public class AutomaticFailover {
         log.info("Captured exceptions: {}", capturedExceptions);
 
         // Cleanup
+        subscriber.cancel();
         directClient.shutdown();
         multiDbClient.shutdown();
     }

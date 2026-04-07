@@ -3,17 +3,18 @@ package io.lettuce.core.event;
 import static io.lettuce.TestTags.UNIT_TEST;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.Collection;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.reactivestreams.Subscription;
 
-import reactor.core.Disposable;
+import io.lettuce.test.Wait;
 import reactor.core.scheduler.Schedulers;
-import reactor.test.StepVerifier;
 
 /**
  * @author Mark Paluch
@@ -26,11 +27,23 @@ class DefaultEventBusUnitTests {
     private Event event;
 
     @Test
-    void publishToSubscriber() {
+    void publishToSubscriber() throws Exception {
 
         EventBus sut = new DefaultEventBus(Schedulers.immediate());
 
-        StepVerifier.create(sut.get()).then(() -> sut.publish(event)).expectNext(event).thenCancel().verify();
+        Collection<Event> events = new LinkedBlockingQueue<>();
+        EventSubscriber subscriber = EventSubscriber.forEvent(Event.class, e -> events.add(e));
+        sut.subscribe(subscriber);
+
+        sut.publish(event);
+
+        // Wait for the event to be published
+        Wait.untilEquals(1, events::size).waitOrTimeout();
+
+        assertThat(events).hasSize(1);
+        assertThat(events.iterator().next()).isEqualTo(event);
+
+        subscriber.cancel();
     }
 
     @Test
@@ -38,15 +51,27 @@ class DefaultEventBusUnitTests {
 
         EventBus sut = new DefaultEventBus(Schedulers.parallel());
 
-        ArrayBlockingQueue<Event> arrayQueue = new ArrayBlockingQueue<>(5);
+        Collection<Event> events1 = new LinkedBlockingQueue<>();
+        Collection<Event> events2 = new LinkedBlockingQueue<>();
 
-        Disposable disposable1 = sut.get().doOnNext(arrayQueue::add).subscribe();
-        StepVerifier.create(sut.get().doOnNext(arrayQueue::add)).then(() -> sut.publish(event)).expectNext(event).thenCancel()
-                .verify();
+        EventSubscriber subscriber1 = EventSubscriber.forEvent(Event.class, e -> events1.add(e));
+        EventSubscriber subscriber2 = EventSubscriber.forEvent(Event.class, e -> events2.add(e));
+        sut.subscribe(subscriber1);
+        sut.subscribe(subscriber2);
 
-        assertThat(arrayQueue.take()).isEqualTo(event);
-        assertThat(arrayQueue.take()).isEqualTo(event);
-        disposable1.dispose();
+        sut.publish(event);
+
+        // Wait for both subscribers to receive the event
+        Wait.untilEquals(1, events1::size).waitOrTimeout();
+        Wait.untilEquals(1, events2::size).waitOrTimeout();
+
+        assertThat(events1).hasSize(1);
+        assertThat(events1.iterator().next()).isEqualTo(event);
+        assertThat(events2).hasSize(1);
+        assertThat(events2.iterator().next()).isEqualTo(event);
+
+        subscriber1.cancel();
+        subscriber2.cancel();
     }
 
 }

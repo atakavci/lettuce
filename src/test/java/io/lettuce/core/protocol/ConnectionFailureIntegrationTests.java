@@ -26,6 +26,7 @@ import io.lettuce.core.*;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.event.Event;
+import io.lettuce.core.event.EventSubscriber;
 import io.lettuce.core.event.connection.ReconnectFailedEvent;
 import io.lettuce.core.resource.ClientResources;
 import io.lettuce.core.resource.NettyCustomizer;
@@ -187,7 +188,8 @@ class ConnectionFailureIntegrationTests extends TestSupport {
 
             redisUri.setPort(TestSettings.nonexistentPort());
 
-            client.getResources().eventBus().get().subscribe(queue::add);
+            EventSubscriber subscriber = EventSubscriber.forEvent(Event.class, queue::add);
+            client.getResources().eventBus().subscribe(subscriber);
 
             commands.quit();
             Wait.untilTrue(() -> !connection.isOpen()).waitOrTimeout();
@@ -215,6 +217,7 @@ class ConnectionFailureIntegrationTests extends TestSupport {
             assertThat(failure2.getCause()).hasMessageContaining("Invalid first byte");
             assertThat(failure2.getAttempt()).isOne();
 
+            subscriber.cancel();
         } finally {
             ts.shutdown();
             FastShutdown.shutdown(client);
