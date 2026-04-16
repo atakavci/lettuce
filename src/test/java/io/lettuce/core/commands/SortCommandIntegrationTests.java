@@ -113,6 +113,17 @@ public class SortCommandIntegrationTests extends TestSupport {
     }
 
     @Test
+    void sortGet2() {
+        redis.rpush(key, "1", "2");
+        redis.set("obj_1", "foo");
+        redis.set("obj_2", "bar");
+        assertThat(redis.lrange(key, 0, -1)).isEqualTo(list("1", "2"));
+        assertThat(redis.get("obj_1")).isEqualTo("foo");
+        assertThat(redis.get("obj_2")).isEqualTo("bar");
+        assertThat(redis.sort(key, get("obj_*"))).isEqualTo(list("foo", "bar"));
+    }
+
+    @Test
     void sortLimit() {
         redis.rpush(key, "3", "2", "1");
         assertThat(redis.sort(key, limit(1, 2))).isEqualTo(list("2", "3"));
