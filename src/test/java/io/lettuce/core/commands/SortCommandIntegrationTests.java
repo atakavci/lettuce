@@ -23,6 +23,8 @@ import static io.lettuce.TestTags.INTEGRATION_TEST;
 import static io.lettuce.core.SortArgs.Builder.*;
 import static org.assertj.core.api.Assertions.*;
 
+import java.util.List;
+
 import javax.inject.Inject;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +51,8 @@ import io.lettuce.test.condition.EnabledOnCommand;
 public class SortCommandIntegrationTests extends TestSupport {
 
     private final RedisCommands<String, String> redis;
+
+    private final String key = "SortCommandIntegrationTestKey";
 
     @Inject
     protected SortCommandIntegrationTests(RedisCommands<String, String> redis) {
@@ -105,11 +109,15 @@ public class SortCommandIntegrationTests extends TestSupport {
     }
 
     @Test
-    void sortGet() {
-        redis.rpush(key, "1", "2");
-        redis.set("obj_1", "foo");
-        redis.set("obj_2", "bar");
-        assertThat(redis.sort(key, get("obj_*"))).isEqualTo(list("foo", "bar"));
+    void sortGet1() {
+        assertThat(redis.rpush(key, "1", "2")).isEqualTo(2);
+        assertThat(redis.set("obj_1", "foo")).isEqualTo("OK");
+        assertThat(redis.set("obj_2", "bar")).isEqualTo("OK");
+        List<String> result = redis.sort(key, get("obj_*"));
+        assertThat(redis.get("obj_1")).isEqualTo("foo");
+        assertThat(redis.get("obj_2")).isEqualTo("bar");
+        assertThat(result).hasSize(2);
+        assertThat(result).isEqualTo(list("foo", "bar"));
     }
 
     @Test
@@ -121,6 +129,48 @@ public class SortCommandIntegrationTests extends TestSupport {
         assertThat(redis.get("obj_1")).isEqualTo("foo");
         assertThat(redis.get("obj_2")).isEqualTo("bar");
         assertThat(redis.sort(key, get("obj_*"))).isEqualTo(list("foo", "bar"));
+    }
+
+    @Test
+    void sortGet3() {
+        redis.rpush(key, "1", "2", "3");
+        redis.set("obj_1", "foo");
+        redis.set("obj_2", "bar");
+        redis.set("obj_3", "too");
+        assertThat(redis.sort(key, get("obj_*"))).isEqualTo(list("foo", "bar", "too"));
+    }
+
+    @Test
+    void sortGet4() {
+        redis.rpush(key, "1", "2");
+        redis.set("obj1_1", "foox");
+        redis.set("obj1_2", "barx");
+        assertThat(redis.sort(key, get("obj1_*"))).isEqualTo(list("foox", "barx"));
+    }
+
+    @Test
+    void sortGetY() {
+        redis.rpush(key, "1", "2");
+        redis.set("obj_1", "foo");
+        redis.set("obj_2", "bar");
+        assertThat(redis.get("obj_1")).isEqualTo("foo");
+        assertThat(redis.sort(key, get("obj_*"))).isEqualTo(list("foo", "bar"));
+    }
+
+    @Test
+    void sortGet5() {
+        redis.rpush(key, "1", "2");
+        redis.set("obj_1", "foo");
+        redis.set("obj_2", "bar");
+        assertThat(redis.sort(key, get("obj_*"))).isEqualTo(list("foo", "bar"));
+    }
+
+    @Test
+    void sortGet6() {
+        redis.rpush(key, "1", "2");
+        redis.set("obj_1", "foo");
+        redis.set("obj_2", "bar");
+        assertThat(redis.sort(key, get("obj_*"))).isEqualTo(list("foo"));
     }
 
     @Test
