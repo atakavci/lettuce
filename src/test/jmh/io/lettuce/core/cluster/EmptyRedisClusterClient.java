@@ -19,8 +19,9 @@ class EmptyRedisClusterClient extends RedisClusterClient {
         super(null, Collections.singleton(initialUri));
     }
 
+    @Override
     <K, V> StatefulRedisConnection<K, V> connectToNode(RedisCodec<K, V> codec, String nodeId, RedisChannelWriter clusterWriter,
-            final Supplier<SocketAddress> socketAddressSupplier) {
+            Mono<SocketAddress> socketAddressSupplier) {
         return EmptyStatefulRedisConnection.INSTANCE;
     }
 }
