@@ -22,12 +22,14 @@ package io.lettuce.core.commands;
 import static io.lettuce.TestTags.INTEGRATION_TEST;
 import static io.lettuce.core.Range.Boundary.*;
 import static io.lettuce.core.ZStoreArgs.Builder.*;
+import static io.lettuce.core.ZStoreArgs.Builder.count;
 import static io.lettuce.core.ZStoreArgs.Builder.max;
 import static io.lettuce.core.ZStoreArgs.Builder.min;
 import static io.lettuce.core.ZStoreArgs.Builder.sum;
 import static java.lang.Double.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.assertj.core.data.Offset.offset;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -47,6 +49,7 @@ import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.test.LettuceExtension;
 import io.lettuce.test.ListStreamingAdapter;
 import io.lettuce.test.condition.EnabledOnCommand;
+import io.lettuce.test.condition.RedisConditions;
 
 /**
  * Integration tests for Sorted Sets via {@link io.lettuce.core.api.sync.RedisSortedSetCommands}.
@@ -1046,6 +1049,49 @@ public class SortedSetCommandIntegrationTests extends TestSupport {
 
         assertThat(redis.zinter(zset1, zset2)).isEqualTo(list("a", "b"));
         assertThat(redis.zinterWithScores(zset1, zset2)).isEqualTo(svlist(sv(2.0, "a"), sv(4.0, "b")));
+    }
+
+    @Test
+    @EnabledOnCommand("ZINTER")
+    @SuppressWarnings({ "unchecked" })
+    void zStoreArgsAggregateCount() {
+
+        assumeTrue(RedisConditions.of(redis).hasVersionGreaterOrEqualsTo("8.7.225"), "AGGREGATE COUNT requires Redis 8.8");
+
+        redis.zadd("s1", 1.0, "foo", 1.0, "bar");
+        redis.zadd("s2", 2.0, "foo", 2.0, "bar");
+        redis.zadd("s3", 3.0, "foo");
+
+        // ZUNIONSTORE with COUNT and no WEIGHTS: score = number of input sets containing the element
+        assertThat(redis.zunionstore(key, count(), "s1", "s2", "s3")).isEqualTo(2);
+        assertThat(redis.zrangeWithScores(key, 0, -1)).isEqualTo(svlist(sv(2.0, "bar"), sv(3.0, "foo")));
+
+        // ZINTERSTORE with COUNT and no WEIGHTS: score = number of input sets (only common elements)
+        assertThat(redis.zinterstore(key, count(), "s1", "s2", "s3")).isEqualTo(1);
+        assertThat(redis.zrangeWithScores(key, 0, -1)).isEqualTo(svlist(sv(3.0, "foo")));
+
+        // ZUNIONSTORE with COUNT and WEIGHTS: score = sum of weights of input sets containing the element
+        assertThat(redis.zunionstore(key, weights(10, 5, 3).count(), "s1", "s2", "s3")).isEqualTo(2);
+        assertThat(redis.zrangeWithScores(key, 0, -1)).isEqualTo(svlist(sv(15.0, "bar"), sv(18.0, "foo")));
+
+        // ZINTERSTORE with COUNT and WEIGHTS: score = sum of weights (only common elements)
+        assertThat(redis.zinterstore(key, weights(10, 5, 3).count(), "s1", "s2", "s3")).isEqualTo(1);
+        assertThat(redis.zrangeWithScores(key, 0, -1)).isEqualTo(svlist(sv(18.0, "foo")));
+    }
+
+    @Test
+    @EnabledOnCommand("ZUNION")
+    void zunionAggregateCount() {
+
+        assumeTrue(RedisConditions.of(redis).hasVersionGreaterOrEqualsTo("8.7.225"), "AGGREGATE COUNT requires Redis 8.8");
+
+        redis.zadd("s1", 1.0, "foo", 1.0, "bar");
+        redis.zadd("s2", 2.0, "foo", 2.0, "bar");
+        redis.zadd("s3", 3.0, "foo");
+
+        assertThat(redis.zunionWithScores(ZAggregateArgs.Builder.count(), "s1", "s2", "s3"))
+                .isEqualTo(svlist(sv(2.0, "bar"), sv(3.0, "foo")));
+        assertThat(redis.zinterWithScores(ZAggregateArgs.Builder.count(), "s1", "s2", "s3")).isEqualTo(svlist(sv(3.0, "foo")));
     }
 
     void setup100KeyValues(Set<String> expect) {

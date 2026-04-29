@@ -99,6 +99,17 @@ public class ZStoreArgs extends ZAggregateArgs {
             return new ZStoreArgs().max();
         }
 
+        /**
+         * Creates new {@link ZStoreArgs} setting {@literal AGGREGATE COUNT}.
+         *
+         * @return new {@link ZAddArgs} with {@literal AGGREGATE COUNT} set.
+         * @see ZStoreArgs#count()
+         * @since 8.0
+         */
+        public static ZStoreArgs count() {
+            return new ZStoreArgs().count();
+        }
+
     }
 
     /**
@@ -162,6 +173,22 @@ public class ZStoreArgs extends ZAggregateArgs {
     public ZStoreArgs max() {
 
         super.max();
+        return this;
+    }
+
+    /**
+     * Aggregate scores of elements existing across multiple sets by using the number of input sets that contain each element.
+     * When {@code COUNT} is specified, the scores in the input sets are ignored. {@code WEIGHTS} are not ignored: the score of
+     * each element becomes the sum of the weights specified for the input sets that contain it (defaulting to {@code 1} per set
+     * when {@code WEIGHTS} is not provided).
+     *
+     * @return {@code this} {@link ZStoreArgs}.
+     * @since 8.0
+     */
+    @Override
+    public ZStoreArgs count() {
+
+        super.count();
         return this;
     }
 

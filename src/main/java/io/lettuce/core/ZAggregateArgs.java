@@ -42,7 +42,7 @@ import io.lettuce.core.protocol.CommandArgs;
 public class ZAggregateArgs implements CompositeArgument {
 
     private enum Aggregate {
-        SUM, MIN, MAX
+        SUM, MIN, MAX, COUNT
     }
 
     private List<Double> weights;
@@ -100,6 +100,17 @@ public class ZAggregateArgs implements CompositeArgument {
             return new ZAggregateArgs().max();
         }
 
+        /**
+         * Creates new {@link ZAggregateArgs} setting {@literal AGGREGATE COUNT}.
+         *
+         * @return new {@link ZAddArgs} with {@literal AGGREGATE COUNT} set.
+         * @see ZAggregateArgs#count()
+         * @since 8.0
+         */
+        public static ZAggregateArgs count() {
+            return new ZAggregateArgs().count();
+        }
+
     }
 
     /**
@@ -153,6 +164,21 @@ public class ZAggregateArgs implements CompositeArgument {
         return this;
     }
 
+    /**
+     * Aggregate scores of elements existing across multiple sets by using the number of input sets that contain each element.
+     * When {@code COUNT} is specified, the scores in the input sets are ignored. {@code WEIGHTS} are not ignored: the score of
+     * each element becomes the sum of the weights specified for the input sets that contain it (defaulting to {@code 1} per set
+     * when {@code WEIGHTS} is not provided).
+     *
+     * @return {@code this} {@link ZAggregateArgs}.
+     * @since 8.0
+     */
+    public ZAggregateArgs count() {
+
+        this.aggregate = Aggregate.COUNT;
+        return this;
+    }
+
     @Override
     public <K, V> void build(CommandArgs<K, V> args) {
 
@@ -175,6 +201,9 @@ public class ZAggregateArgs implements CompositeArgument {
                     break;
                 case MAX:
                     args.add(MAX);
+                    break;
+                case COUNT:
+                    args.add(COUNT);
                     break;
                 default:
                     throw new IllegalArgumentException("Aggregation " + aggregate + " not supported");
