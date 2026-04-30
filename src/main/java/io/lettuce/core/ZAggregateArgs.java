@@ -63,7 +63,7 @@ public class ZAggregateArgs implements CompositeArgument {
         /**
          * Creates new {@link ZAggregateArgs} setting {@literal WEIGHTS}.
          *
-         * @return new {@link ZAddArgs} with {@literal WEIGHTS} set.
+         * @return new {@link ZAggregateArgs} with {@literal WEIGHTS} set.
          * @see ZAggregateArgs#weights(double...)
          */
         public static ZAggregateArgs weights(double... weights) {
@@ -73,7 +73,7 @@ public class ZAggregateArgs implements CompositeArgument {
         /**
          * Creates new {@link ZAggregateArgs} setting {@literal AGGREGATE SUM}.
          *
-         * @return new {@link ZAddArgs} with {@literal AGGREGATE SUM} set.
+         * @return new {@link ZAggregateArgs} with {@literal AGGREGATE SUM} set.
          * @see ZAggregateArgs#sum()
          */
         public static ZAggregateArgs sum() {
@@ -83,7 +83,7 @@ public class ZAggregateArgs implements CompositeArgument {
         /**
          * Creates new {@link ZAggregateArgs} setting {@literal AGGREGATE MIN}.
          *
-         * @return new {@link ZAddArgs} with {@literal AGGREGATE MIN} set.
+         * @return new {@link ZAggregateArgs} with {@literal AGGREGATE MIN} set.
          * @see ZAggregateArgs#sum()
          */
         public static ZAggregateArgs min() {
@@ -93,7 +93,7 @@ public class ZAggregateArgs implements CompositeArgument {
         /**
          * Creates new {@link ZAggregateArgs} setting {@literal AGGREGATE MAX}.
          *
-         * @return new {@link ZAddArgs} with {@literal AGGREGATE MAX} set.
+         * @return new {@link ZAggregateArgs} with {@literal AGGREGATE MAX} set.
          * @see ZAggregateArgs#sum()
          */
         public static ZAggregateArgs max() {
@@ -103,9 +103,9 @@ public class ZAggregateArgs implements CompositeArgument {
         /**
          * Creates new {@link ZAggregateArgs} setting {@literal AGGREGATE COUNT}.
          *
-         * @return new {@link ZAddArgs} with {@literal AGGREGATE COUNT} set.
+         * @return new {@link ZAggregateArgs} with {@literal AGGREGATE COUNT} set.
          * @see ZAggregateArgs#count()
-         * @since 8.0
+         * @since 7.6
          */
         public static ZAggregateArgs count() {
             return new ZAggregateArgs().count();
@@ -171,7 +171,7 @@ public class ZAggregateArgs implements CompositeArgument {
      * when {@code WEIGHTS} is not provided).
      *
      * @return {@code this} {@link ZAggregateArgs}.
-     * @since 8.0
+     * @since 7.6
      */
     public ZAggregateArgs count() {
 
