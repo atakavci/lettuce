@@ -261,10 +261,11 @@ public abstract class Futures {
     /**
      * Return a new {@link CompletableFuture} that mirrors {@code source} but completes exceptionally with
      * {@link TimeoutException} if {@code source} does not complete within {@code duration}. The timeout is scheduled on the
-     * {@link ClientResources#timer()} and cancelled upon source completion.
+     * {@link ClientResources#timer()} and cancelled upon source completion. A {@code duration} of {@link Duration#ZERO}
+     * disables the timeout and {@code source} is returned as-is.
      *
      * @param source the source future, must not be {@code null}.
-     * @param duration timeout duration, must not be {@code null}.
+     * @param duration timeout duration, must not be {@code null} or negative. {@link Duration#ZERO} means "do not time out".
      * @param resources client resources providing the timer, must not be {@code null}.
      * @param taskName short description of the awaited operation, used in the {@link TimeoutException} message; must not be
      *        {@code null}.
@@ -276,8 +277,13 @@ public abstract class Futures {
 
         LettuceAssert.notNull(source, "Source future must not be null");
         LettuceAssert.notNull(duration, "Duration must not be null");
+        LettuceAssert.isTrue(!duration.isNegative(), "Duration must not be negative");
         LettuceAssert.notNull(resources, "ClientResources must not be null");
         LettuceAssert.notNull(taskName, "Task name must not be null");
+
+        if (source.isDone() || duration.isZero()) {
+            return source;
+        }
 
         CompletableFuture<T> result = new CompletableFuture<>();
         Timeout scheduled = resources.timer().newTimeout(

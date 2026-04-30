@@ -22,7 +22,6 @@ package io.lettuce.core.masterreplica;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisException;
@@ -111,7 +110,7 @@ class SentinelConnector<K, V> implements MasterReplicaConnector<K, V> {
 
     private void closeSilently(StatefulRedisMasterReplicaConnectionImpl<K, V> connection) {
         connection.closeAsync().exceptionally(ex -> {
-            LOG.warn("Failed to close sentinel connection", ex);
+            LOG.warn("Failed to close master/replica connection", ex);
             return null;
         });
     }

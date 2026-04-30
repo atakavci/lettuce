@@ -99,7 +99,9 @@ class StaticMasterReplicaTopologyProvider implements TopologyProvider {
                 return CompletableFuture.<RedisNodeDescription> completedFuture(null);
             }
 
-            return getNodeDescription(uri, connection).whenComplete((nd, t) -> connection.closeAsync());
+            return CompletableFuture.completedFuture(connection).thenCompose(c -> getNodeDescription(uri, c))
+                    .whenComplete((nd, t) -> closeSilently(connection));
+
         }).thenCompose(f -> f);
     }
 
@@ -108,6 +110,13 @@ class StaticMasterReplicaTopologyProvider implements TopologyProvider {
 
         return connection.async().role().toCompletableFuture().thenApply(roleOutput -> new RedisMasterReplicaNode(uri.getHost(),
                 uri.getPort(), uri, RoleParser.parse(roleOutput).getRole()));
+    }
+
+    private static void closeSilently(StatefulRedisConnection<String, String> connection) {
+        connection.closeAsync().exceptionally(ex -> {
+            logger.warn("Failed to close connection while gathering master/replica topology information", ex);
+            return null;
+        });
     }
 
 }
