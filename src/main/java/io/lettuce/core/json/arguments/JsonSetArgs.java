@@ -28,7 +28,7 @@ public class JsonSetArgs implements CompositeArgument {
     private FphaType fphaType;
 
     /**
-     * Floating-point precision array type for the {@literal FPHA} block of the {@literal JSON.SET} command.
+     * Floating-point homogeneous array type for the {@literal FPHA} block of the {@literal JSON.SET} command.
      *
      * @since 7.6
      */
@@ -76,7 +76,7 @@ public class JsonSetArgs implements CompositeArgument {
         /**
          * Creates new {@link JsonSetArgs} and sets the {@literal FPHA} type.
          *
-         * @param fphaType the floating-point half-precision array type.
+         * @param fphaType the floating-point homogeneous array type.
          * @return new {@link JsonSetArgs} with {@literal FPHA} type set.
          * @since 7.6
          */
@@ -118,9 +118,9 @@ public class JsonSetArgs implements CompositeArgument {
     }
 
     /**
-     * Set the floating-point half-precision array type for encoding numeric arrays.
+     * Set the floating-point homogeneous array type for encoding numeric arrays.
      *
-     * @param fphaType the floating-point half-precision array type.
+     * @param fphaType the floating-point homogeneous array type.
      * @return {@code this}.
      * @since 7.6
      */

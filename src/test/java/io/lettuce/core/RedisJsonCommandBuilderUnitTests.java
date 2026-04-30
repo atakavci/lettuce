@@ -20,6 +20,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -391,52 +393,17 @@ class RedisJsonCommandBuilderUnitTests {
                 + "bikes:inventory\r\n" + "$1\r\n" + "$\r\n" + "$14\r\n" + ID_BIKE_6 + "\r\n" + "$2\r\n" + "NX\r\n");
     }
 
-    @Test
-    void shouldCorrectlyConstructJsonSetWithFphaFp16() {
-        JsonSetArgs args = JsonSetArgs.Builder.fpha(JsonSetArgs.FphaType.FP16);
+    @ParameterizedTest
+    @EnumSource(JsonSetArgs.FphaType.class)
+    void shouldCorrectlyConstructJsonSetWithFpha(JsonSetArgs.FphaType fphaType) {
+        JsonSetArgs args = JsonSetArgs.Builder.fpha(fphaType);
         Command<String, String, String> command = builder.jsonSet(MY_KEY, MY_PATH, ELEMENT, args);
         ByteBuf buf = Unpooled.directBuffer();
         command.encode(buf);
 
         assertThat(buf.toString(StandardCharsets.UTF_8)).isEqualTo(
                 "*6\r\n" + "$8\r\n" + "JSON.SET\r\n" + "$15\r\n" + "bikes:inventory\r\n" + "$17\r\n" + "$..commuter_bikes\r\n"
-                        + "$14\r\n" + ID_BIKE_6 + "\r\n" + "$4\r\n" + "FPHA\r\n" + "$4\r\n" + "FP16\r\n");
-    }
-
-    @Test
-    void shouldCorrectlyConstructJsonSetWithFphaBf16() {
-        JsonSetArgs args = JsonSetArgs.Builder.fpha(JsonSetArgs.FphaType.BF16);
-        Command<String, String, String> command = builder.jsonSet(MY_KEY, MY_PATH, ELEMENT, args);
-        ByteBuf buf = Unpooled.directBuffer();
-        command.encode(buf);
-
-        assertThat(buf.toString(StandardCharsets.UTF_8)).isEqualTo(
-                "*6\r\n" + "$8\r\n" + "JSON.SET\r\n" + "$15\r\n" + "bikes:inventory\r\n" + "$17\r\n" + "$..commuter_bikes\r\n"
-                        + "$14\r\n" + ID_BIKE_6 + "\r\n" + "$4\r\n" + "FPHA\r\n" + "$4\r\n" + "BF16\r\n");
-    }
-
-    @Test
-    void shouldCorrectlyConstructJsonSetWithFphaFp32() {
-        JsonSetArgs args = JsonSetArgs.Builder.fpha(JsonSetArgs.FphaType.FP32);
-        Command<String, String, String> command = builder.jsonSet(MY_KEY, MY_PATH, ELEMENT, args);
-        ByteBuf buf = Unpooled.directBuffer();
-        command.encode(buf);
-
-        assertThat(buf.toString(StandardCharsets.UTF_8)).isEqualTo(
-                "*6\r\n" + "$8\r\n" + "JSON.SET\r\n" + "$15\r\n" + "bikes:inventory\r\n" + "$17\r\n" + "$..commuter_bikes\r\n"
-                        + "$14\r\n" + ID_BIKE_6 + "\r\n" + "$4\r\n" + "FPHA\r\n" + "$4\r\n" + "FP32\r\n");
-    }
-
-    @Test
-    void shouldCorrectlyConstructJsonSetWithFphaFp64() {
-        JsonSetArgs args = JsonSetArgs.Builder.fpha(JsonSetArgs.FphaType.FP64);
-        Command<String, String, String> command = builder.jsonSet(MY_KEY, MY_PATH, ELEMENT, args);
-        ByteBuf buf = Unpooled.directBuffer();
-        command.encode(buf);
-
-        assertThat(buf.toString(StandardCharsets.UTF_8)).isEqualTo(
-                "*6\r\n" + "$8\r\n" + "JSON.SET\r\n" + "$15\r\n" + "bikes:inventory\r\n" + "$17\r\n" + "$..commuter_bikes\r\n"
-                        + "$14\r\n" + ID_BIKE_6 + "\r\n" + "$4\r\n" + "FPHA\r\n" + "$4\r\n" + "FP64\r\n");
+                        + "$14\r\n" + ID_BIKE_6 + "\r\n" + "$4\r\n" + "FPHA\r\n" + "$4\r\n" + fphaType.name() + "\r\n");
     }
 
     @Test

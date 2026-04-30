@@ -22,6 +22,7 @@ import io.lettuce.core.json.arguments.JsonRangeArgs;
 import io.lettuce.core.json.arguments.JsonSetArgs;
 import io.lettuce.test.condition.RedisConditions;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -77,6 +78,11 @@ public class RedisJsonIntegrationTests {
         JsonValue value = redis.getJsonParser().createJsonValue(read);
 
         redis.jsonSet("bikes:inventory", JsonPath.ROOT_PATH, value);
+    }
+
+    @AfterEach
+    public void cleanup() {
+        redis.flushall();
     }
 
     @AfterAll
