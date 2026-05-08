@@ -34,6 +34,7 @@ import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -122,8 +123,17 @@ public class MaintenanceAwareConnectionWatchdog extends ConnectionWatchdog imple
     }
 
     @Override
+    @Deprecated
     protected Mono<SocketAddress> wrapSocketAddressSupplier(Mono<SocketAddress> socketAddressSupplier) {
         Mono<SocketAddress> source = super.wrapSocketAddressSupplier(socketAddressSupplier);
+        rebindAwareAddressSupplier = new RebindAwareAddressSupplier();
+        return rebindAwareAddressSupplier.wrappedSupplier(source);
+    }
+
+    @Override
+    protected Supplier<CompletionStage<SocketAddress>> wrapSocketAddressSupplier(
+            Supplier<CompletionStage<SocketAddress>> socketAddressSupplier) {
+        Supplier<CompletionStage<SocketAddress>> source = super.wrapSocketAddressSupplier(socketAddressSupplier);
         rebindAwareAddressSupplier = new RebindAwareAddressSupplier();
         return rebindAwareAddressSupplier.wrappedSupplier(source);
     }
@@ -416,6 +426,7 @@ public class MaintenanceAwareConnectionWatchdog extends ConnectionWatchdog imple
          * @param original the original supplier
          * @return a new supplier that is aware of re-bind events
          */
+        @Deprecated
         public Mono<SocketAddress> wrappedSupplier(Mono<SocketAddress> original) {
             return Mono.defer(() -> {
                 State current = state.get();
@@ -432,6 +443,25 @@ public class MaintenanceAwareConnectionWatchdog extends ConnectionWatchdog imple
                             .doOnNext(address -> logger.debug("RebindAwareAddressSupplier original address: {}", address));
                 }
             });
+        }
+
+        public Supplier<CompletionStage<SocketAddress>> wrappedSupplier(Supplier<CompletionStage<SocketAddress>> original) {
+            return () -> {
+                State current = state.get();
+                logger.debug("RebindAwareAddressSupplier rebind state: {}", current);
+                if (current != null && current.rebindAddress != null && clock.instant().isBefore(current.cutoff)) {
+                    logger.debug("RebindAwareAddressSupplier using rebind address: {}", current);
+                    logger.debug("RebindAwareAddressSupplier rebind address: {}", current.rebindAddress);
+                    return CompletableFuture.completedFuture(current.rebindAddress);
+                } else {
+                    logger.debug("RebindAwareAddressSupplier falling back to original.");
+                    state.compareAndSet(current, null);
+                    return original.get().thenApply(address -> {
+                        logger.debug("RebindAwareAddressSupplier original address: {}", address);
+                        return address;
+                    });
+                }
+            };
         }
 
     }
