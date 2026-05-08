@@ -24,6 +24,7 @@ import java.net.SocketAddress;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
@@ -114,8 +115,9 @@ class ReconnectionHandler {
                     reconnect0(future, remoteAddress);
                 }
             }).exceptionally(error -> {
-                address.completeExceptionally(error);
-                future.completeExceptionally(error);
+                Throwable cause = (error instanceof CompletionException && error.getCause() != null) ? error.getCause() : error;
+                address.completeExceptionally(cause);
+                future.completeExceptionally(cause);
                 return null;
             });
         } catch (Exception e) {

@@ -371,8 +371,8 @@ public abstract class AbstractRedisClient implements BaseRedisClient {
     protected <K, V, T extends RedisChannelHandler<K, V>> ConnectionFuture<T> initializeChannelAsync(
             ConnectionBuilder connectionBuilder) {
 
-        Mono<SocketAddress> socketAddressSupplier = Mono
-                .fromCallable(() -> connectionBuilder.socketAddressFuture().get().toCompletableFuture().join());
+        Supplier<CompletionStage<SocketAddress>> addressSupplier = connectionBuilder.socketAddressFuture();
+        Mono<SocketAddress> socketAddressSupplier = Mono.defer(() -> Mono.fromCompletionStage(addressSupplier.get()));
 
         if (clientResources.eventExecutorGroup().isShuttingDown()) {
             throw new IllegalStateException("Cannot connect, Event executor group is terminated.");

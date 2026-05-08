@@ -189,7 +189,7 @@ public class ConnectionBuilder {
     @Deprecated
     public Mono<SocketAddress> socketAddress() {
         LettuceAssert.assertState(socketAddressSupplier != null, "SocketAddressSupplier must be set");
-        return Mono.fromCallable(() -> socketAddressSupplier.get().toCompletableFuture().join());
+        return Mono.defer(() -> Mono.fromCompletionStage(socketAddressSupplier.get()));
     }
 
     public Supplier<CompletionStage<SocketAddress>> socketAddressFuture() {
