@@ -34,8 +34,10 @@ import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * An extension to {@link ConnectionWatchdog} that intercepts maintenance events.
@@ -75,6 +77,7 @@ public class MaintenanceAwareConnectionWatchdog extends ConnectionWatchdog imple
 
     private RebindAwareAddressSupplier rebindAwareAddressSupplier;
 
+    @Deprecated
     public MaintenanceAwareConnectionWatchdog(Delay reconnectDelay, ClientOptions clientOptions, Bootstrap bootstrap,
             Timer timer, EventExecutorGroup reconnectWorkers, Mono<SocketAddress> socketAddressSupplier,
             ReconnectionListener reconnectionListener, ConnectionFacade connectionFacade, EventBus eventBus,
@@ -82,6 +85,14 @@ public class MaintenanceAwareConnectionWatchdog extends ConnectionWatchdog imple
 
         super(reconnectDelay, clientOptions, bootstrap, timer, reconnectWorkers, socketAddressSupplier, reconnectionListener,
                 connectionFacade, eventBus, endpoint);
+    }
+
+    public MaintenanceAwareConnectionWatchdog(Delay reconnectDelay, ClientOptions clientOptions, Bootstrap bootstrap,
+            Timer timer, EventExecutorGroup reconnectWorkers, Supplier<CompletionStage<SocketAddress>> socketAddressSupplier,
+            ReconnectionListener reconnectionListener, EventBus eventBus, Endpoint endpoint) {
+
+        super(reconnectDelay, clientOptions, bootstrap, timer, reconnectWorkers, socketAddressSupplier, reconnectionListener,
+                eventBus, endpoint);
     }
 
     @Override

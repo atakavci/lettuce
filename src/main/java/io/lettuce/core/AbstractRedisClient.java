@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import io.lettuce.core.MaintNotificationsConfig.EndpointTypeSource;
 import io.lettuce.core.api.BaseRedisClient;
@@ -233,8 +234,14 @@ public abstract class AbstractRedisClient implements BaseRedisClient {
      * @param connectionBuilder connection builder to configure the connection
      * @param redisURI URI of the Redis instance
      */
+    @Deprecated
     protected void connectionBuilder(Mono<SocketAddress> socketAddressSupplier, ConnectionBuilder connectionBuilder,
             RedisURI redisURI) {
+        connectionBuilder(socketAddressSupplier, connectionBuilder, connectionEvents, redisURI);
+    }
+
+    protected void connectionBuilder(Supplier<CompletionStage<SocketAddress>> socketAddressSupplier,
+            ConnectionBuilder connectionBuilder, RedisURI redisURI) {
         connectionBuilder(socketAddressSupplier, connectionBuilder, connectionEvents, redisURI);
     }
 
@@ -247,8 +254,23 @@ public abstract class AbstractRedisClient implements BaseRedisClient {
      * @param redisURI URI of the Redis instance
      * @since 6.2
      */
+    @Deprecated
     protected void connectionBuilder(Mono<SocketAddress> socketAddressSupplier, ConnectionBuilder connectionBuilder,
             ConnectionEvents connectionEvents, RedisURI redisURI) {
+
+        Bootstrap redisBootstrap = new Bootstrap();
+        redisBootstrap.option(ChannelOption.ALLOCATOR, ByteBufAllocator.DEFAULT);
+
+        connectionBuilder.bootstrap(redisBootstrap);
+        connectionBuilder.apply(redisURI);
+        connectionBuilder.configureBootstrap(!LettuceStrings.isEmpty(redisURI.getSocket()), this::getEventLoopGroup);
+        connectionBuilder.channelGroup(channels).connectionEvents(connectionEvents == this.connectionEvents ? connectionEvents
+                : ConnectionEvents.of(this.connectionEvents, connectionEvents));
+        connectionBuilder.socketAddressSupplier(socketAddressSupplier);
+    }
+
+    protected void connectionBuilder(Supplier<CompletionStage<SocketAddress>> socketAddressSupplier,
+            ConnectionBuilder connectionBuilder, ConnectionEvents connectionEvents, RedisURI redisURI) {
 
         Bootstrap redisBootstrap = new Bootstrap();
         redisBootstrap.option(ChannelOption.ALLOCATOR, ByteBufAllocator.DEFAULT);
