@@ -14,9 +14,14 @@ import io.lettuce.core.protocol.CommandType;
  * {@link IncrexFloatArgs}.
  *
  * @param <T> the concrete subtype, for fluent method chaining
+ * @param <B> the bound type ({@link Long} for integer mode, {@link Double} for float mode)
  * @since 7.6
  */
-abstract class BaseIncrexArgs<T extends BaseIncrexArgs<T>> implements CompositeArgument {
+abstract class BaseIncrexArgs<T extends BaseIncrexArgs<T, B>, B> implements CompositeArgument {
+
+    private B lbound;
+
+    private B ubound;
 
     private boolean saturate = false;
 
@@ -35,6 +40,16 @@ abstract class BaseIncrexArgs<T extends BaseIncrexArgs<T>> implements CompositeA
     @SuppressWarnings("unchecked")
     private T self() {
         return (T) this;
+    }
+
+    public T lbound(B lbound) {
+        this.lbound = lbound;
+        return self();
+    }
+
+    public T ubound(B ubound) {
+        this.ubound = ubound;
+        return self();
     }
 
     /**
@@ -85,7 +100,15 @@ abstract class BaseIncrexArgs<T extends BaseIncrexArgs<T>> implements CompositeA
     @Override
     public <K, V> void build(CommandArgs<K, V> args) {
 
-        buildBounds(args);
+        if (lbound != null) {
+            args.add(CommandKeyword.LBOUND);
+            args.add(lbound);
+        }
+
+        if (ubound != null) {
+            args.add(CommandKeyword.UBOUND);
+            args.add(ubound);
+        }
 
         if (saturate) {
             args.add(CommandKeyword.SATURATE);
@@ -110,11 +133,7 @@ abstract class BaseIncrexArgs<T extends BaseIncrexArgs<T>> implements CompositeA
         if (enx) {
             args.add(CommandKeyword.ENX);
         }
-    }
 
-    /**
-     * Subclasses emit their typed {@code LBOUND}/{@code UBOUND} here.
-     */
-    protected abstract <K, V> void buildBounds(CommandArgs<K, V> args);
+    }
 
 }

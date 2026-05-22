@@ -14,7 +14,7 @@ class IncrexArgsUnitTests {
     @Test
     void shouldRenderLboundUbound() {
         CommandArgs<String, String> args = new CommandArgs<>(StringCodec.UTF8);
-        IncrexArgs.Builder.lbound(0).ubound(100).build(args);
+        IncrexArgs.Builder.lbound(0).ubound(100L).build(args);
         assertThat(args.toCommandString()).isEqualTo("LBOUND 0 UBOUND 100");
     }
 
@@ -70,7 +70,7 @@ class IncrexArgsUnitTests {
     @Test
     void shouldRenderFullArgs() {
         CommandArgs<String, String> args = new CommandArgs<>(StringCodec.UTF8);
-        IncrexArgs.Builder.lbound(0).ubound(100).saturate().ex(60).enx().build(args);
+        IncrexArgs.Builder.lbound(0).ubound(100L).saturate().ex(60).enx().build(args);
         assertThat(args.toCommandString()).isEqualTo("LBOUND 0 UBOUND 100 SATURATE EX 60 ENX");
     }
 

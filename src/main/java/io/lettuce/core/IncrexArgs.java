@@ -1,8 +1,5 @@
 package io.lettuce.core;
 
-import io.lettuce.core.protocol.CommandArgs;
-import io.lettuce.core.protocol.CommandKeyword;
-
 /**
  * Argument list builder for the integer-bounded form of the Redis {@code INCREX} command. Accepts {@code long} lower/upper
  * bounds; paired with the {@code increx(K, long, IncrexArgs)} overload on the commands interface (sends {@code BYINT} on the
@@ -20,13 +17,7 @@ import io.lettuce.core.protocol.CommandKeyword;
  *
  * @since 7.6
  */
-public class IncrexArgs extends BaseIncrexArgs<IncrexArgs> {
-
-    private Long lbound;
-
-    private Long ubound;
-
-    // ── Static Builder ─────────────────────────────
+public class IncrexArgs extends BaseIncrexArgs<IncrexArgs, Long> {
 
     public static class Builder {
 
@@ -69,32 +60,6 @@ public class IncrexArgs extends BaseIncrexArgs<IncrexArgs> {
             return new IncrexArgs().enx();
         }
 
-    }
-
-    // ── Fluent Setters ─────────────────────────────
-
-    public IncrexArgs lbound(long lbound) {
-        this.lbound = lbound;
-        return this;
-    }
-
-    public IncrexArgs ubound(long ubound) {
-        this.ubound = ubound;
-        return this;
-    }
-
-    @Override
-    protected <K, V> void buildBounds(CommandArgs<K, V> args) {
-
-        if (lbound != null) {
-            args.add(CommandKeyword.LBOUND);
-            args.add(lbound);
-        }
-
-        if (ubound != null) {
-            args.add(CommandKeyword.UBOUND);
-            args.add(ubound);
-        }
     }
 
 }
