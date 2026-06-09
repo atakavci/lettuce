@@ -25,13 +25,15 @@ import static io.lettuce.core.protocol.CommandType.*;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.internal.SuppliedItemStore;
 import io.lettuce.core.internal.SupplierCaching;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.api.push.PushListener;
@@ -44,7 +46,6 @@ import io.lettuce.core.json.JsonParser;
 import io.lettuce.core.output.MultiOutput;
 import io.lettuce.core.output.StatusOutput;
 import io.lettuce.core.protocol.*;
-import reactor.core.publisher.Mono;
 
 /**
  * A thread-safe connection to a Redis server. Multiple threads may share one {@link StatefulRedisConnectionImpl}
@@ -131,11 +132,12 @@ public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V>
         return syncHandler(async(), RedisCommands.class, RedisClusterCommands.class);
     }
 
-    private final SuppliedItemStore<StatefulRedisConnection<K, V>> commandsCache = new SuppliedItemStore<>(this);
+    private final Map<Function<StatefulRedisConnection<K, V>, ?>, Object> commandsCache = new HashMap<>();
 
+    @SuppressWarnings("unchecked")
     @Override
-    public SuppliedItemStore<StatefulRedisConnection<K, V>> getStore() {
-        return commandsCache;
+    public <T> T getCachedBySupplier(Function<StatefulRedisConnection<K, V>, T> supplier) {
+        return (T) commandsCache.computeIfAbsent(supplier, f -> f.apply(this));
     }
 
     /**

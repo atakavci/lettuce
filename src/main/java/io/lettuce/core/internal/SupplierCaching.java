@@ -9,10 +9,6 @@ import java.util.function.Function;
  */
 public interface SupplierCaching<C> {
 
-    SuppliedItemStore<C> getStore();
-
-    default <T> T getCachedBySupplier(Function<C, T> supplier) {
-        return getStore().get(supplier);
-    }
+    <T> T getCachedBySupplier(Function<C, T> supplier);
 
 }

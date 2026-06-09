@@ -27,9 +27,12 @@ import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -54,7 +57,6 @@ import io.lettuce.core.cluster.models.partitions.Partitions;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.codec.RedisCodec;
 import io.lettuce.core.internal.LettuceAssert;
-import io.lettuce.core.internal.SuppliedItemStore;
 import io.lettuce.core.internal.SupplierCaching;
 import io.lettuce.core.json.JsonParser;
 import io.lettuce.core.protocol.CommandArgsAccessor;
@@ -62,7 +64,6 @@ import io.lettuce.core.protocol.CompleteableCommand;
 import io.lettuce.core.protocol.ConnectionIntent;
 import io.lettuce.core.protocol.ConnectionWatchdog;
 import io.lettuce.core.protocol.RedisCommand;
-import reactor.core.publisher.Mono;
 
 /**
  * A thread-safe connection to a Redis Cluster. Multiple threads may share one {@link StatefulRedisClusterConnectionImpl}
@@ -149,11 +150,12 @@ public class StatefulRedisClusterConnectionImpl<K, V> extends RedisChannelHandle
         return new RedisAdvancedClusterAsyncCommandsImpl((StatefulRedisClusterConnection<K, V>) this, codec, parser);
     }
 
-    private final SuppliedItemStore<StatefulRedisClusterConnection<K, V>> commandsCache = new SuppliedItemStore<>(this);
+    private final Map<Function<StatefulRedisClusterConnection<K, V>, ?>, Object> commandsCache = new HashMap<>();
 
+    @SuppressWarnings("unchecked")
     @Override
-    public SuppliedItemStore<StatefulRedisClusterConnection<K, V>> getStore() {
-        return commandsCache;
+    public <T> T getCachedBySupplier(Function<StatefulRedisClusterConnection<K, V>, T> supplier) {
+        return (T) commandsCache.computeIfAbsent(supplier, f -> f.apply(this));
     }
 
     @Override

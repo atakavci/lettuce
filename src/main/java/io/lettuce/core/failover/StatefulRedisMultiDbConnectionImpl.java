@@ -5,6 +5,7 @@ import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -18,6 +19,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -51,7 +53,6 @@ import io.lettuce.core.failover.health.HealthStatusManager;
 import io.lettuce.core.internal.AbstractInvocationHandler;
 import io.lettuce.core.internal.Exceptions;
 import io.lettuce.core.internal.LettuceAssert;
-import io.lettuce.core.internal.SuppliedItemStore;
 import io.lettuce.core.internal.SupplierCaching;
 import io.lettuce.core.protocol.RedisCommand;
 import io.lettuce.core.resource.ClientResources;
@@ -464,11 +465,12 @@ public class StatefulRedisMultiDbConnectionImpl<C extends StatefulRedisConnectio
         return new RedisAsyncCommandsImpl<>(this, codec, () -> this.getOptions().getJsonParser().get());
     }
 
-    private final SuppliedItemStore<StatefulRedisMultiDbConnection<K, V>> commandsCache = new SuppliedItemStore<>(this);
+    private final Map<Function<StatefulRedisMultiDbConnection<K, V>, ?>, Object> commandsCache = new HashMap<>();
 
+    @SuppressWarnings("unchecked")
     @Override
-    public SuppliedItemStore<StatefulRedisMultiDbConnection<K, V>> getStore() {
-        return commandsCache;
+    public <T> T getCachedBySupplier(Function<StatefulRedisMultiDbConnection<K, V>, T> supplier) {
+        return (T) commandsCache.computeIfAbsent(supplier, f -> f.apply(this));
     }
 
     /**
