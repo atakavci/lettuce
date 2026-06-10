@@ -7,12 +7,16 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.function.Function;
 
 import io.lettuce.core.api.AsyncCloseable;
 import io.lettuce.core.api.StatefulConnection;
 import io.lettuce.core.internal.LettuceAssert;
+import io.lettuce.core.internal.SupplierCaching;
 import io.lettuce.core.protocol.CommandExpiryWriter;
 import io.lettuce.core.protocol.CommandWrapper;
 import io.lettuce.core.protocol.ConnectionFacade;
@@ -31,7 +35,8 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
  * @author Mark Paluch
  * @since 3.0
  */
-public abstract class RedisChannelHandler<K, V> implements Closeable, ConnectionFacade {
+public abstract class RedisChannelHandler<K, V>
+        implements Closeable, ConnectionFacade, SupplierCaching<RedisChannelHandler<K, V>> {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(RedisChannelHandler.class);
 
@@ -79,6 +84,14 @@ public abstract class RedisChannelHandler<K, V> implements Closeable, Connection
 
         writer.setConnectionFacade(this);
         setTimeout(timeout);
+    }
+
+    private final Map<Function<RedisChannelHandler<K, V>, ?>, Object> commandsCache = new HashMap<>();
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T getCachedBySupplier(Function<RedisChannelHandler<K, V>, T> supplier) {
+        return (T) commandsCache.computeIfAbsent(supplier, f -> f.apply(this));
     }
 
     /**

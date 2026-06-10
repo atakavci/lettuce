@@ -25,16 +25,12 @@ import static io.lettuce.core.protocol.CommandType.*;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.internal.SupplierCaching;
 import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.api.push.PushListener;
 import io.lettuce.core.api.reactive.RedisReactiveCommands;
@@ -46,6 +42,7 @@ import io.lettuce.core.json.JsonParser;
 import io.lettuce.core.output.MultiOutput;
 import io.lettuce.core.output.StatusOutput;
 import io.lettuce.core.protocol.*;
+import reactor.core.publisher.Mono;
 
 /**
  * A thread-safe connection to a Redis server. Multiple threads may share one {@link StatefulRedisConnectionImpl}
@@ -57,8 +54,7 @@ import io.lettuce.core.protocol.*;
  * @param <V> Value type.
  * @author Mark Paluch
  */
-public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V>
-        implements StatefulRedisConnection<K, V>, SupplierCaching<StatefulRedisConnection<K, V>> {
+public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V> implements StatefulRedisConnection<K, V> {
 
     protected final RedisCodec<K, V> codec;
 
@@ -130,14 +126,6 @@ public class StatefulRedisConnectionImpl<K, V> extends RedisChannelHandler<K, V>
      */
     protected RedisCommands<K, V> newRedisSyncCommandsImpl() {
         return syncHandler(async(), RedisCommands.class, RedisClusterCommands.class);
-    }
-
-    private final Map<Function<StatefulRedisConnection<K, V>, ?>, Object> commandsCache = new HashMap<>();
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T> T getCachedBySupplier(Function<StatefulRedisConnection<K, V>, T> supplier) {
-        return (T) commandsCache.computeIfAbsent(supplier, f -> f.apply(this));
     }
 
     /**
