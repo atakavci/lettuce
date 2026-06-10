@@ -2,7 +2,10 @@ package io.lettuce.core.masterslave;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.ReadFrom;
@@ -12,6 +15,7 @@ import io.lettuce.core.api.push.PushListener;
 import io.lettuce.core.api.reactive.RedisReactiveCommands;
 import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.codec.RedisCodec;
+import io.lettuce.core.internal.SupplierCaching;
 import io.lettuce.core.masterreplica.StatefulRedisMasterReplicaConnection;
 import io.lettuce.core.protocol.RedisCommand;
 import io.lettuce.core.resource.ClientResources;
@@ -22,7 +26,7 @@ import io.lettuce.core.resource.ClientResources;
  * @author Mark Paluch
  * @since 5.2
  */
-class MasterSlaveConnectionWrapper<K, V> implements StatefulRedisMasterSlaveConnection<K, V> {
+class MasterSlaveConnectionWrapper<K, V> implements StatefulRedisMasterSlaveConnection<K, V>, SupplierCaching<StatefulRedisMasterSlaveConnection<K, V>> {
 
     private final StatefulRedisMasterReplicaConnection<K, V> delegate;
 
@@ -58,6 +62,14 @@ class MasterSlaveConnectionWrapper<K, V> implements StatefulRedisMasterSlaveConn
     @Override
     public RedisReactiveCommands<K, V> reactive() {
         return delegate.reactive();
+    }
+
+    private final Map<Function<StatefulRedisMasterSlaveConnection<K, V>, ?>, Object> commandsCache = new HashMap<>();
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T getCachedBySupplier(Function<StatefulRedisMasterSlaveConnection<K, V>, T> supplier) {
+        return (T) commandsCache.computeIfAbsent(supplier, f -> f.apply(this));
     }
 
     @Override
