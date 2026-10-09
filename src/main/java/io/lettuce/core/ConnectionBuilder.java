@@ -23,6 +23,7 @@ import java.net.SocketAddress;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -51,8 +52,6 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.util.AttributeKey;
-import io.netty.util.internal.logging.InternalLogger;
-import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  * Connection builder for connections. This class is part of the internal API.
@@ -62,13 +61,11 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
  */
 public class ConnectionBuilder {
 
-    private static final InternalLogger logger = InternalLoggerFactory.getInstance(ConnectionBuilder.class);
-
     public static final AttributeKey<String> REDIS_URI = AttributeKey.valueOf("RedisURI");
 
     public static final AttributeKey<Throwable> INIT_FAILURE = AttributeKey.valueOf("ConnectionBuilder.INIT_FAILURE");
 
-    private Mono<SocketAddress> socketAddressSupplier;
+    private Supplier<CompletionStage<SocketAddress>> socketAddressSupplier;
 
     private ConnectionEvents connectionEvents;
 
@@ -158,7 +155,7 @@ public class ConnectionBuilder {
         if (clientOptions.getMaintNotificationsConfig().maintNotificationsEnabled()) {
             MaintenanceAwareConnectionWatchdog maintenanceAwareWatchdog = new MaintenanceAwareConnectionWatchdog(
                     clientResources.reconnectDelay(), clientOptions, bootstrap, clientResources.timer(),
-                    clientResources.eventExecutorGroup(), socketAddressSupplier, reconnectionListener, connection,
+                    clientResources.eventExecutorGroup(), socketAddressSupplier, reconnectionListener,
                     clientResources.eventBus(), endpoint);
             if (connection.getChannelWriter() instanceof MaintenanceAwareComponent) {
                 maintenanceAwareWatchdog.setMaintenanceEventListener((MaintenanceAwareComponent) connection.getChannelWriter());
@@ -167,7 +164,7 @@ public class ConnectionBuilder {
         } else {
             watchdog = new ConnectionWatchdog(clientResources.reconnectDelay(), clientOptions, bootstrap,
                     clientResources.timer(), clientResources.eventExecutorGroup(), socketAddressSupplier, reconnectionListener,
-                    connection, clientResources.eventBus(), endpoint);
+                    clientResources.eventBus(), endpoint);
         }
 
         endpoint.registerConnectionWatchdog(watchdog);
@@ -180,12 +177,24 @@ public class ConnectionBuilder {
         return new PlainChannelInitializer(this::buildHandlers, clientResources);
     }
 
+    @Deprecated
     public ConnectionBuilder socketAddressSupplier(Mono<SocketAddress> socketAddressSupplier) {
-        this.socketAddressSupplier = socketAddressSupplier;
+        this.socketAddressSupplier = socketAddressSupplier::toFuture;
         return this;
     }
 
+    public ConnectionBuilder socketAddressSupplier(Supplier<CompletionStage<SocketAddress>> socketAddressSupplier2) {
+        this.socketAddressSupplier = socketAddressSupplier2;
+        return this;
+    }
+
+    @Deprecated
     public Mono<SocketAddress> socketAddress() {
+        LettuceAssert.assertState(socketAddressSupplier != null, "SocketAddressSupplier must be set");
+        return Mono.defer(() -> Mono.fromCompletionStage(socketAddressSupplier.get()));
+    }
+
+    public Supplier<CompletionStage<SocketAddress>> socketAddressFuture() {
         LettuceAssert.assertState(socketAddressSupplier != null, "SocketAddressSupplier must be set");
         return socketAddressSupplier;
     }
